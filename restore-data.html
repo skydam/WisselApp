@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Restore Hockey Team Data</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        button {
+            background: #000;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #333;
+        }
+        .success {
+            color: green;
+            margin-top: 10px;
+        }
+        pre {
+            background: #f0f0f0;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>Restore Hockey Team Data</h1>
+        <p>Your localStorage is empty. Choose an option to restore your team data:</p>
+
+        <h3>Option 1: Load Test Data (15 players)</h3>
+        <button onclick="loadTestData()">Load Test Players</button>
+
+        <h3>Option 2: Paste Your Backup Data</h3>
+        <p>If you have a backup export, paste it here:</p>
+        <textarea id="backupData" rows="10" style="width: 100%; font-family: monospace;"></textarea>
+        <br><br>
+        <button onclick="restoreFromBackup()">Restore from Backup</button>
+
+        <div id="status"></div>
+    </div>
+
+    <div class="card">
+        <h3>Current Storage Status</h3>
+        <pre id="storageInfo"></pre>
+    </div>
+
+    <script>
+        // Test data
+        const testPlayers = [
+            { name: 'Alex Johnson', skill: 5, isGoalkeeper: true, available: true },
+            { name: 'Jordan Smith', skill: 4, isGoalkeeper: false, available: true },
+            { name: 'Taylor Brown', skill: 3, isGoalkeeper: false, available: true },
+            { name: 'Casey Williams', skill: 4, isGoalkeeper: false, available: true },
+            { name: 'Morgan Davis', skill: 2, isGoalkeeper: false, available: true },
+            { name: 'Riley Miller', skill: 5, isGoalkeeper: false, available: true },
+            { name: 'Avery Wilson', skill: 3, isGoalkeeper: false, available: true },
+            { name: 'Quinn Moore', skill: 4, isGoalkeeper: false, available: true },
+            { name: 'Sage Taylor', skill: 3, isGoalkeeper: false, available: true },
+            { name: 'River Anderson', skill: 2, isGoalkeeper: false, available: true },
+            { name: 'Skyler Thomas', skill: 5, isGoalkeeper: false, available: true },
+            { name: 'Cameron Jackson', skill: 4, isGoalkeeper: false, available: true },
+            { name: 'Drew White', skill: 3, isGoalkeeper: false, available: true },
+            { name: 'Emery Harris', skill: 2, isGoalkeeper: false, available: true },
+            { name: 'Phoenix Martin', skill: 4, isGoalkeeper: false, available: true }
+        ].map((p, index) => ({ ...p, id: index + 1 }));
+
+        function loadTestData() {
+            if (confirm('This will load 15 test players. Continue?')) {
+                saveToStorage(testPlayers);
+                document.getElementById('status').innerHTML = '<p class="success">✅ Test data loaded successfully! Refresh the main app to see your players.</p>';
+                updateStorageInfo();
+            }
+        }
+
+        function restoreFromBackup() {
+            const backupText = document.getElementById('backupData').value.trim();
+            if (!backupText) {
+                alert('Please paste your backup data first');
+                return;
+            }
+
+            try {
+                const data = JSON.parse(backupText);
+                let players;
+
+                // Handle different backup formats
+                if (Array.isArray(data)) {
+                    players = data;
+                } else if (data.players) {
+                    players = data.players;
+                } else if (data.data) {
+                    players = data.data;
+                } else {
+                    throw new Error('Invalid backup format');
+                }
+
+                saveToStorage(players);
+                document.getElementById('status').innerHTML = `<p class="success">✅ Restored ${players.length} players from backup! Refresh the main app to see your players.</p>`;
+                updateStorageInfo();
+
+            } catch (error) {
+                document.getElementById('status').innerHTML = `<p style="color: red;">❌ Error: ${error.message}</p>`;
+            }
+        }
+
+        function saveToStorage(players) {
+            const timestamp = new Date().toISOString();
+            const dataWithMeta = {
+                data: players,
+                timestamp: timestamp,
+                version: '2.0',
+                checksum: generateChecksum(JSON.stringify(players))
+            };
+
+            const serialized = JSON.stringify(dataWithMeta);
+
+            // Save to all backup locations
+            localStorage.setItem('hockey_team_players', serialized);
+            localStorage.setItem('hockey_team_players_backup1', serialized);
+            localStorage.setItem('hockey_team_players_backup2', serialized);
+            localStorage.setItem('hockey_team_last_save', timestamp);
+
+            // Create an export backup
+            const exportData = {
+                exportedAt: timestamp,
+                version: '2.0',
+                playerCount: players.length,
+                players: players
+            };
+            const exportKey = `hockey_export_${timestamp.replace(/[:.]/g, '-')}`;
+            localStorage.setItem(exportKey, JSON.stringify(exportData, null, 2));
+        }
+
+        function generateChecksum(str) {
+            let hash = 0;
+            if (str.length === 0) return hash;
+            for (let i = 0; i < str.length; i++) {
+                const char = str.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash;
+            }
+            return hash.toString(36);
+        }
+
+        function updateStorageInfo() {
+            const keys = ['hockey_team_players', 'hockey_team_players_backup1', 'hockey_team_players_backup2'];
+            let info = '';
+
+            keys.forEach(key => {
+                const value = localStorage.getItem(key);
+                if (value) {
+                    try {
+                        const parsed = JSON.parse(value);
+                        const playerCount = parsed.data ? parsed.data.length : 0;
+                        info += `${key}: ${playerCount} players (${value.length} bytes)\n`;
+                    } catch (e) {
+                        info += `${key}: Invalid data\n`;
+                    }
+                } else {
+                    info += `${key}: Not found\n`;
+                }
+            });
+
+            document.getElementById('storageInfo').textContent = info;
+        }
+
+        // Initial load
+        updateStorageInfo();
+    </script>
+</body>
+</html>

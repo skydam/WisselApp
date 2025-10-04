@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hockey Team Manager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@100;200;300;400;500;600;700;800;900&family=Geist+Mono:wght@100;200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles_shadcn.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Hockey Team Manager</h1>
+            <nav class="main-nav">
+                <button id="players-tab" class="nav-btn active">Players</button>
+                <button id="game-tab" class="nav-btn">Game</button>
+            </nav>
+        </header>
+
+        <!-- Players Management Section -->
+        <section id="players-section" class="section active">
+            <div class="players-header">
+                <h2>Team Roster</h2>
+                <div>
+                    <button id="load-test-data-btn" class="btn btn-secondary" onclick="loadTestData()">Load Test Data</button>
+                    <button id="clear-all-data-btn" class="btn btn-danger" onclick="playerManager.clearAllPlayers()">Clear All</button>
+                    <button id="add-player-btn" class="btn btn-primary">Add Player</button>
+                </div>
+            </div>
+
+            <!-- Add Player Form -->
+            <div id="add-player-form" class="card hidden" style="display: none;">
+                <div class="card-header">
+                    <h3 class="card-title">Add New Player</h3>
+                    <p class="card-description">Add a new player to your team roster.</p>
+                </div>
+                <div class="card-content">
+                    <form id="player-form">
+                        <div class="form-group">
+                            <label for="player-name">Player Name</label>
+                            <input type="text" id="player-name" placeholder="Enter player name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="player-skill">Skill Rating (1-5)</label>
+                            <input type="range" id="player-skill" min="1" max="5" value="3">
+                            <span id="skill-value" class="skill-value">3</span>
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">Add Player</button>
+                            <button type="button" id="cancel-add" class="btn btn-secondary">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Single Players List -->
+            <div class="players-roster">
+                <div class="roster-controls">
+                    <div class="roster-info">
+                        <span id="roster-count">0 players</span> | 
+                        <span id="goalkeeper-status">No goalkeeper selected</span> | 
+                        <span id="available-count">0 available for match</span>
+                    </div>
+                </div>
+                <div id="all-players-list" class="player-list"></div>
+            </div>
+        </section>
+
+        <!-- Game Management Section -->
+        <section id="game-section" class="section">
+            <div class="game-controls">
+                <button id="generate-schedule-btn" class="btn btn-primary" disabled>Generate Game Schedule</button>
+                <button id="clear-schedule-btn" class="btn btn-secondary hidden">Clear Schedule</button>
+                <button id="print-schedule-btn" class="btn btn-secondary hidden">🖨️ Print Schedule</button>
+                <div class="game-settings">
+                    <div class="game-info">
+                        <span>70-minute game • 4 quarters • 12 formation moments</span>
+                    </div>
+                    <div class="strength-toggle">
+                        <label class="toggle-label">
+                            <input type="checkbox" id="consider-strength" checked>
+                            <span class="toggle-slider"></span>
+                            Consider player strength
+                        </label>
+                    </div>
+                    <div class="strength-toggle">
+                        <label class="toggle-label">
+                            <input type="checkbox" id="consider-fatigue">
+                            <span class="toggle-slider"></span>
+                            Apply fatigue penalty (10% per interval beyond 3)
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Substitution Moments -->
+            <div class="substitutions-container">
+                <h2>Field Formations at Each Substitution Moment</h2>
+                <div class="legend">
+                    <div class="legend-item">
+                        <div class="legend-box player-normal"></div>
+                        <span>Continuing player</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-box player-out"></div>
+                        <span>Going out</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-box player-in"></div>
+                        <span>Coming in</span>
+                    </div>
+                </div>
+                <div id="substitution-moments" class="substitution-moments-grid">
+                    <p class="schedule-placeholder">Generate a game schedule to see substitution moments</p>
+                </div>
+            </div>
+
+            <!-- Playing Time Overview -->
+            <div class="playing-time-container">
+                <h2>Playing Time Distribution</h2>
+                <div class="playing-time-table" id="playing-time-overview">
+                    <p class="schedule-placeholder">Generate a game schedule to see playing time distribution</p>
+                </div>
+            </div>
+
+            <!-- Player Timeline Gantt Chart -->
+            <div class="gantt-container">
+                <h2>Player Timeline (Gantt Chart)</h2>
+                <div class="gantt-chart" id="player-gantt-chart">
+                    <p class="schedule-placeholder">Generate a game schedule to see player timeline</p>
+                </div>
+            </div>
+
+            <!-- Substitution Schedule -->
+            <div class="schedule-container">
+                <h2>Substitution Schedule</h2>
+                <div class="schedule-timeline" id="substitution-schedule">
+                    <p class="schedule-placeholder">Generate a game schedule to see substitution timeline</p>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script src="database_new.js"></script>
+    <script src="storage_new.js"></script>
+    <script src="player-manager_new.js"></script>
+    <script src="rotation-engine_new.js"></script>
+    <script src="app_new.js"></script>
+    <script src="test-data_new.js"></script>
+</body>
+</html>

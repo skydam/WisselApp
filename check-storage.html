@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Storage Checker</title>
+</head>
+<body>
+    <h1>Hockey Team Storage Diagnostic</h1>
+    <pre id="output"></pre>
+
+    <script>
+        const output = document.getElementById('output');
+        let report = "=== LocalStorage Contents ===\n\n";
+
+        // Check specific keys
+        const keys = [
+            'hockey_team_players',
+            'hockey_team_players_backup1',
+            'hockey_team_players_backup2',
+            'hockey_team_last_save'
+        ];
+
+        keys.forEach(key => {
+            const value = localStorage.getItem(key);
+            if (value) {
+                try {
+                    const parsed = JSON.parse(value);
+                    const playerCount = parsed.data ? parsed.data.length : (Array.isArray(parsed) ? parsed.length : 0);
+                    report += `✅ ${key}: Found (${playerCount} players)\n`;
+                    report += `   Timestamp: ${parsed.timestamp || 'N/A'}\n`;
+                    report += `   Size: ${value.length} bytes\n\n`;
+                } catch (e) {
+                    report += `⚠️ ${key}: Found but invalid JSON\n\n`;
+                }
+            } else {
+                report += `❌ ${key}: Not found\n\n`;
+            }
+        });
+
+        // Check for exports
+        report += "\n=== Export Backups ===\n\n";
+        let exportCount = 0;
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('hockey_export_')) {
+                exportCount++;
+                const value = localStorage.getItem(key);
+                try {
+                    const parsed = JSON.parse(value);
+                    report += `📦 ${key}: ${parsed.playerCount || 0} players\n`;
+                } catch (e) {
+                    report += `⚠️ ${key}: Invalid\n`;
+                }
+            }
+        }
+
+        if (exportCount === 0) {
+            report += "No export backups found\n";
+        }
+
+        report += `\n=== Summary ===\n`;
+        report += `Total localStorage keys: ${localStorage.length}\n`;
+        report += `Export backups found: ${exportCount}\n`;
+
+        output.textContent = report;
+    </script>
+</body>
+</html>

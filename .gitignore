@@ -20,3 +20,9 @@ node_modules/
 
 # Logs
 *.log
+
+# Database
+*.db
+*.db-journal
+*.db-shm
+*.db-wal

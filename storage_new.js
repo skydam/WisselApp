@@ -3,6 +3,26 @@ const storage = {
     async savePlayers(players) {
         try {
             console.log(`💾 Saving ${players.length} players to storage...`);
+
+            // Save to backend API if available
+            if (window.useBackendStorage) {
+                const response = await fetch('/api/team/save', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ data: { players } })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to save to server');
+                }
+
+                console.log('✅ Saved to server');
+                return true;
+            }
+
+            // Fallback to localStorage
             return await database.save(players, 'players');
         } catch (error) {
             console.error('❌ Storage save failed:', error);
@@ -13,6 +33,22 @@ const storage = {
     async loadPlayers() {
         try {
             console.log('📂 Loading players from storage...');
+
+            // Load from backend API if available
+            if (window.useBackendStorage) {
+                const response = await fetch('/api/team/load');
+
+                if (!response.ok) {
+                    throw new Error('Failed to load from server');
+                }
+
+                const result = await response.json();
+                const players = result.data?.players || [];
+                console.log(`📦 Loaded ${players.length} players from server`);
+                return players;
+            }
+
+            // Fallback to localStorage
             const players = await database.load('players');
             console.log(`📦 Loaded ${players.length} players from storage`);
             return players || [];

@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Hockey Team Manager</title>
+    <link rel="stylesheet" href="styles_shadcn.css">
+    <style>
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: oklch(98% 0 0);
+        }
+
+        .auth-container {
+            width: 100%;
+            max-width: 400px;
+            padding: 2rem;
+        }
+
+        .auth-card {
+            background: oklch(100% 0 0);
+            border: 1px solid oklch(90% 0 0);
+            border-radius: 8px;
+            padding: 2rem;
+            box-shadow: 0 1px 3px oklch(0% 0 0 / 0.1);
+        }
+
+        .auth-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .auth-header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .auth-header p {
+            color: oklch(50% 0 0);
+            font-size: 0.875rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            font-size: 0.875rem;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid oklch(85% 0 0);
+            border-radius: 6px;
+            font-size: 1rem;
+            font-family: 'Geist Sans', sans-serif;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: oklch(40% 0 0);
+        }
+
+        .btn-primary {
+            width: 100%;
+            padding: 0.75rem;
+            background: oklch(10% 0 0);
+            color: oklch(100% 0 0);
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            font-family: 'Geist Sans', sans-serif;
+        }
+
+        .btn-primary:hover {
+            background: oklch(20% 0 0);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .auth-toggle {
+            text-align: center;
+            margin-top: 1.5rem;
+            font-size: 0.875rem;
+        }
+
+        .auth-toggle a {
+            color: oklch(30% 0 0);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .auth-toggle a:hover {
+            text-decoration: underline;
+        }
+
+        .error-message {
+            background: oklch(95% 0.05 30);
+            color: oklch(40% 0.15 30);
+            padding: 0.75rem;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+            font-size: 0.875rem;
+            display: none;
+        }
+
+        .success-message {
+            background: oklch(95% 0.05 150);
+            color: oklch(30% 0.15 150);
+            padding: 0.75rem;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+            font-size: 0.875rem;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-card">
+            <div class="auth-header">
+                <h1>Hockey Team Manager</h1>
+                <p id="auth-subtitle">Sign in to manage your team</p>
+            </div>
+
+            <div id="error-message" class="error-message"></div>
+            <div id="success-message" class="success-message"></div>
+
+            <form id="auth-form">
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" name="email" required autocomplete="email">
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" required minlength="6" autocomplete="current-password">
+                </div>
+
+                <button type="submit" class="btn-primary" id="submit-btn">Sign In</button>
+            </form>
+
+            <div class="auth-toggle">
+                <span id="toggle-text">Don't have an account?</span>
+                <a href="#" id="toggle-link">Sign up</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let isLoginMode = true;
+        const form = document.getElementById('auth-form');
+        const submitBtn = document.getElementById('submit-btn');
+        const toggleLink = document.getElementById('toggle-link');
+        const toggleText = document.getElementById('toggle-text');
+        const authSubtitle = document.getElementById('auth-subtitle');
+        const errorMessage = document.getElementById('error-message');
+        const successMessage = document.getElementById('success-message');
+        const passwordInput = document.getElementById('password');
+
+        toggleLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            isLoginMode = !isLoginMode;
+
+            if (isLoginMode) {
+                submitBtn.textContent = 'Sign In';
+                toggleText.textContent = "Don't have an account?";
+                toggleLink.textContent = 'Sign up';
+                authSubtitle.textContent = 'Sign in to manage your team';
+                passwordInput.setAttribute('autocomplete', 'current-password');
+            } else {
+                submitBtn.textContent = 'Sign Up';
+                toggleText.textContent = 'Already have an account?';
+                toggleLink.textContent = 'Sign in';
+                authSubtitle.textContent = 'Create an account to get started';
+                passwordInput.setAttribute('autocomplete', 'new-password');
+            }
+
+            hideMessages();
+        });
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hideMessages();
+
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = isLoginMode ? 'Signing in...' : 'Creating account...';
+
+            try {
+                const endpoint = isLoginMode ? '/api/login' : '/api/signup';
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showSuccess(data.message);
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 500);
+                } else {
+                    showError(data.error);
+                }
+            } catch (error) {
+                showError('Connection error. Please try again.');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = isLoginMode ? 'Sign In' : 'Sign Up';
+            }
+        });
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+        }
+
+        function showSuccess(message) {
+            successMessage.textContent = message;
+            successMessage.style.display = 'block';
+        }
+
+        function hideMessages() {
+            errorMessage.style.display = 'none';
+            successMessage.style.display = 'none';
+        }
+    </script>
+</body>
+</html>

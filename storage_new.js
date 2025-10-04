@@ -11,6 +11,7 @@ const storage = {
                     headers: {
                         'Content-Type': 'application/json'
                     },
+                    credentials: 'same-origin',
                     body: JSON.stringify({ data: { players } })
                 });
 
@@ -36,7 +37,9 @@ const storage = {
 
             // Load from backend API if available
             if (window.useBackendStorage) {
-                const response = await fetch('/api/team/load');
+                const response = await fetch('/api/team/load', {
+                    credentials: 'same-origin'
+                });
 
                 if (!response.ok) {
                     throw new Error('Failed to load from server');

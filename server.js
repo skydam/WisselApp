@@ -8,6 +8,12 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Email whitelist - only these emails can sign up
+const ALLOWED_EMAILS = [
+  'jvharten@gmail.com'
+  // Add more emails here as needed
+];
+
 // Initialize SQLite database
 const db = new Database('wisselapp.db');
 
@@ -63,6 +69,11 @@ app.post('/api/signup', async (req, res) => {
     return res.status(400).json({ error: 'Email and password required' });
   }
 
+  // Check if email is whitelisted
+  if (!ALLOWED_EMAILS.includes(email.toLowerCase())) {
+    return res.status(403).json({ error: 'This email is not authorized to create an account. Contact the administrator for access.' });
+  }
+
   if (password.length < 6) {
     return res.status(400).json({ error: 'Password must be at least 6 characters' });
   }
@@ -70,7 +81,7 @@ app.post('/api/signup', async (req, res) => {
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
     const stmt = db.prepare('INSERT INTO users (email, password) VALUES (?, ?)');
-    const result = stmt.run(email, hashedPassword);
+    const result = stmt.run(email.toLowerCase(), hashedPassword);
 
     req.session.userId = result.lastInsertRowid;
     res.json({ success: true, message: 'Account created successfully' });
@@ -93,7 +104,7 @@ app.post('/api/login', async (req, res) => {
 
   try {
     const stmt = db.prepare('SELECT * FROM users WHERE email = ?');
-    const user = stmt.get(email);
+    const user = stmt.get(email.toLowerCase());
 
     if (!user) {
       return res.status(401).json({ error: 'Invalid email or password' });

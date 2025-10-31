@@ -1,19 +1,57 @@
 class RotationEngine {
-    constructor(playerManager) {
+    constructor(playerManager, substitutionsPerQuarter = 2) {
         this.playerManager = playerManager;
         this.schedule = [];
         this.gameLength = 70; // minutes
         this.quartersCount = 4;
         this.quarterLength = this.gameLength / this.quartersCount; // 17.5 minutes
-        this.substitutionInterval = 5 + 50/60; // 5:50 minutes - exact decimal representation
-        this.substitutionsPerQuarter = 2;
+        this.substitutionsPerQuarter = substitutionsPerQuarter;
+        // Calculate interval based on number of substitutions per quarter
+        this.substitutionInterval = this.quarterLength / (this.substitutionsPerQuarter + 1);
         this.fieldPositions = [
             'F1', 'F2', 'F3', // 3 Forwards
-            'M1', 'M2', 'M3', // 3 Midfield  
+            'M1', 'M2', 'M3', // 3 Midfield
             'D1', 'D2', 'D3', // 3 Defenders
             'S1' // 1 Sweeper (last defender)
         ];
         this.allPositions = ['G', ...this.fieldPositions]; // G = Goalkeeper
+    }
+
+    // Static method to calculate formation moment options based on roster size
+    static getFormationOptions(availablePlayers) {
+        const benchSize = availablePlayers - 11; // 11 = 10 outfield + 1 goalkeeper
+
+        const options = [
+            {
+                name: 'Minimal',
+                substitutionsPerQuarter: 0,
+                totalMoments: 4,
+                intervalMinutes: 17.5,
+                description: 'Quarter starts only',
+                bestFor: '11-12 players (1-2 bench)',
+                recommended: benchSize <= 1
+            },
+            {
+                name: 'Balanced',
+                substitutionsPerQuarter: 1,
+                totalMoments: 8,
+                intervalMinutes: 8.75,
+                description: '1 substitution per quarter',
+                bestFor: '13-14 players (3-4 bench)',
+                recommended: benchSize >= 2 && benchSize <= 4
+            },
+            {
+                name: 'Detailed',
+                substitutionsPerQuarter: 2,
+                totalMoments: 12,
+                intervalMinutes: 5.83,
+                description: '2 substitutions per quarter',
+                bestFor: '15+ players (5+ bench)',
+                recommended: benchSize >= 5
+            }
+        ];
+
+        return options;
     }
 
     generateSchedule(considerStrength = true, considerFatigue = false) {

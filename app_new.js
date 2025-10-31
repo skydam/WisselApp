@@ -54,7 +54,7 @@ class App {
 
         if (generateBtn) {
             generateBtn.addEventListener('click', () => {
-                this.generateSchedule();
+                this.startScheduleGeneration();
             });
         }
 
@@ -71,7 +71,7 @@ class App {
         }
     }
 
-    generateSchedule() {
+    startScheduleGeneration() {
         try {
             if (!playerManager) {
                 throw new Error('Player manager not initialized');
@@ -83,15 +83,107 @@ class App {
                 return;
             }
 
+            // Get available players count
+            const availablePlayers = playerManager.getAvailablePlayers().length;
+
+            // Show formation moment selector modal
+            this.showFormationMomentSelector(availablePlayers);
+
+        } catch (error) {
+            console.error('Error starting schedule generation:', error);
+            alert('Error: ' + error.message);
+        }
+    }
+
+    showFormationMomentSelector(availablePlayers) {
+        // Get formation options from RotationEngine
+        const options = RotationEngine.getFormationOptions(availablePlayers);
+        const benchSize = availablePlayers - 11;
+
+        // Create modal HTML
+        const modalHTML = `
+            <div id="formation-modal" class="modal-overlay">
+                <div class="modal-dialog">
+                    <div class="modal-header">
+                        <h2>Select Formation Moments</h2>
+                        <p class="modal-subtitle">You have ${availablePlayers} players (${benchSize} on bench). Choose how many substitution moments you'd like:</p>
+                    </div>
+                    <div class="modal-content">
+                        <div class="formation-options">
+                            ${options.map(option => `
+                                <div class="formation-option ${option.recommended ? 'recommended' : ''}"
+                                     data-subs-per-quarter="${option.substitutionsPerQuarter}">
+                                    ${option.recommended ? '<div class="recommended-badge">Recommended</div>' : ''}
+                                    <h3>${option.name}</h3>
+                                    <div class="option-details">
+                                        <div class="detail-item">
+                                            <strong>${option.totalMoments}</strong> moments
+                                        </div>
+                                        <div class="detail-item">
+                                            <strong>~${option.intervalMinutes}</strong> min intervals
+                                        </div>
+                                    </div>
+                                    <p class="option-description">${option.description}</p>
+                                    <p class="option-best-for">${option.bestFor}</p>
+                                    <button class="btn-select-option" data-subs-per-quarter="${option.substitutionsPerQuarter}">
+                                        Select ${option.name}
+                                    </button>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button id="modal-cancel" class="btn-secondary">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Add modal to page
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+        // Add event listeners
+        const modal = document.getElementById('formation-modal');
+        const cancelBtn = document.getElementById('modal-cancel');
+        const selectBtns = modal.querySelectorAll('.btn-select-option');
+
+        // Cancel button
+        cancelBtn.addEventListener('click', () => {
+            modal.remove();
+        });
+
+        // Close on backdrop click
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.remove();
+            }
+        });
+
+        // Selection buttons
+        selectBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const subsPerQuarter = parseInt(btn.dataset.subsPerQuarter);
+                modal.remove();
+                this.generateSchedule(subsPerQuarter);
+            });
+        });
+    }
+
+    generateSchedule(substitutionsPerQuarter = 2) {
+        try {
+            if (!playerManager) {
+                throw new Error('Player manager not initialized');
+            }
+
             // Get settings
             const considerStrength = document.getElementById('consider-strength')?.checked || false;
             const considerFatigue = document.getElementById('consider-fatigue')?.checked || false;
 
-            // Initialize rotation engine
-            this.rotationEngine = new RotationEngine(playerManager);
-            
+            // Initialize rotation engine with selected substitutions per quarter
+            this.rotationEngine = new RotationEngine(playerManager, substitutionsPerQuarter);
+
             // Generate schedule
-            console.log('Generating schedule...');
+            console.log(`Generating schedule with ${substitutionsPerQuarter} substitutions per quarter...`);
             const schedule = this.rotationEngine.generateSchedule(considerStrength, considerFatigue);
             
             // Update UI

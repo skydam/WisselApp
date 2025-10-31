@@ -14,11 +14,19 @@
 <body>
     <div class="container">
         <header>
-            <h1>Hockey Team Manager</h1>
+            <div class="header-top">
+                <h1>Hockey Team Manager</h1>
+                <div class="user-info">
+                    <div class="user-status">
+                        <span class="status-indicator"></span>
+                        <span id="user-email" class="user-email">Loading...</span>
+                    </div>
+                    <button id="logout-btn" class="btn btn-secondary btn-sm">Sign Out</button>
+                </div>
+            </div>
             <nav class="main-nav">
                 <button id="players-tab" class="nav-btn active">Players</button>
                 <button id="game-tab" class="nav-btn">Game</button>
-                <button id="logout-btn" class="btn btn-secondary" style="margin-left: auto;">Logout</button>
             </nav>
         </header>
 
@@ -160,6 +168,12 @@
 
                 if (!data.authenticated) {
                     window.location.href = '/login.html';
+                } else {
+                    // Update UI with user info
+                    const userEmailEl = document.getElementById('user-email');
+                    if (userEmailEl && data.user) {
+                        userEmailEl.textContent = data.user.email;
+                    }
                 }
             } catch (error) {
                 console.error('Auth check failed:', error);

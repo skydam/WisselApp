@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Restore Data - Hockey Team Manager</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 { margin-top: 0; }
+        button {
+            background: #000;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 10px 10px 10px 0;
+        }
+        button:hover { opacity: 0.8; }
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 6px;
+            background: #f0f0f0;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        pre {
+            background: #f8f8f8;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            max-height: 400px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Restore Player Data</h1>
+        <p>This tool helps you recover player data that might be stuck in localStorage or migrate it to the database.</p>
+
+        <h2>Check Storage</h2>
+        <button onclick="checkStorage()">Check localStorage</button>
+        <button onclick="checkDatabase()">Check Database</button>
+        <button onclick="migrateToDatabase()">Migrate localStorage → Database</button>
+        <button onclick="loadTestData()">Load Test Data (15 Players)</button>
+
+        <div id="status" class="status" style="display: none;"></div>
+        <div id="data" style="display: none;">
+            <h3>Data Preview:</h3>
+            <pre id="dataContent"></pre>
+        </div>
+
+        <hr style="margin: 30px 0;">
+        <button onclick="window.location.href='/index.html'" style="background: #007bff;">← Back to App</button>
+    </div>
+
+    <script>
+        function showStatus(message, type = 'success') {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = 'status ' + type;
+            status.style.display = 'block';
+        }
+
+        function showData(data) {
+            const dataDiv = document.getElementById('data');
+            const dataContent = document.getElementById('dataContent');
+            dataContent.textContent = JSON.stringify(data, null, 2);
+            dataDiv.style.display = 'block';
+        }
+
+        function checkStorage() {
+            const keys = ['players_primary', 'players_backup1', 'players_backup2'];
+            let found = false;
+
+            for (const key of keys) {
+                const data = localStorage.getItem(key);
+                if (data) {
+                    try {
+                        const parsed = JSON.parse(data);
+                        showStatus(`Found ${parsed.length || 0} players in ${key}`, 'success');
+                        showData(parsed);
+                        found = true;
+                        break;
+                    } catch (e) {
+                        showStatus(`Error parsing ${key}: ${e.message}`, 'error');
+                    }
+                }
+            }
+
+            if (!found) {
+                showStatus('No player data found in localStorage', 'error');
+                document.getElementById('data').style.display = 'none';
+            }
+        }
+
+        async function checkDatabase() {
+            try {
+                const response = await fetch('/api/team/load', {
+                    credentials: 'same-origin'
+                });
+
+                if (!response.ok) {
+                    throw new Error('Not authenticated or server error');
+                }
+
+                const result = await response.json();
+                const players = result.data?.players || [];
+
+                if (players.length > 0) {
+                    showStatus(`Found ${players.length} players in database`, 'success');
+                    showData(players);
+                } else {
+                    showStatus('Database is empty (no players saved)', 'error');
+                    document.getElementById('data').style.display = 'none';
+                }
+            } catch (error) {
+                showStatus(`Error checking database: ${error.message}`, 'error');
+            }
+        }
+
+        async function migrateToDatabase() {
+            const keys = ['players_primary', 'players_backup1', 'players_backup2'];
+            let players = null;
+
+            for (const key of keys) {
+                const data = localStorage.getItem(key);
+                if (data) {
+                    try {
+                        players = JSON.parse(data);
+                        break;
+                    } catch (e) {
+                        console.error('Parse error:', e);
+                    }
+                }
+            }
+
+            if (!players || players.length === 0) {
+                showStatus('No data to migrate from localStorage', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/team/save', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ data: { players } })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to save to database');
+                }
+
+                showStatus(`Successfully migrated ${players.length} players to database!`, 'success');
+                showData(players);
+            } catch (error) {
+                showStatus(`Migration failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function loadTestData() {
+            const testPlayers = [
+                {id: 1, name: "Emma Johnson", skill: 4, isGoalkeeper: true, availableForMatch: true},
+                {id: 2, name: "Liam Smith", skill: 5, isGoalkeeper: false, availableForMatch: true},
+                {id: 3, name: "Olivia Brown", skill: 4, isGoalkeeper: false, availableForMatch: true},
+                {id: 4, name: "Noah Davis", skill: 3, isGoalkeeper: false, availableForMatch: true},
+                {id: 5, name: "Ava Wilson", skill: 5, isGoalkeeper: false, availableForMatch: true},
+                {id: 6, name: "Ethan Martinez", skill: 2, isGoalkeeper: false, availableForMatch: true},
+                {id: 7, name: "Sophia Anderson", skill: 4, isGoalkeeper: false, availableForMatch: true},
+                {id: 8, name: "Mason Taylor", skill: 3, isGoalkeeper: false, availableForMatch: true},
+                {id: 9, name: "Isabella Thomas", skill: 5, isGoalkeeper: false, availableForMatch: true},
+                {id: 10, name: "Lucas Moore", skill: 2, isGoalkeeper: false, availableForMatch: true},
+                {id: 11, name: "Mia Jackson", skill: 4, isGoalkeeper: false, availableForMatch: true},
+                {id: 12, name: "Logan White", skill: 3, isGoalkeeper: false, availableForMatch: true},
+                {id: 13, name: "Charlotte Harris", skill: 4, isGoalkeeper: false, availableForMatch: true},
+                {id: 14, name: "Alexander Clark", skill: 3, isGoalkeeper: false, availableForMatch: true},
+                {id: 15, name: "Amelia Lewis", skill: 5, isGoalkeeper: false, availableForMatch: true}
+            ];
+
+            try {
+                const response = await fetch('/api/team/save', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ data: { players: testPlayers } })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to save test data');
+                }
+
+                showStatus(`Successfully loaded 15 test players!`, 'success');
+                showData(testPlayers);
+            } catch (error) {
+                showStatus(`Failed to load test data: ${error.message}`, 'error');
+            }
+        }
+    </script>
+</body>
+</html>

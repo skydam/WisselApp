@@ -4,27 +4,37 @@ const storage = {
         try {
             console.log(`💾 Saving ${players.length} players to storage...`);
 
+            // ALWAYS save to localStorage as backup
+            const localSaveSuccess = await database.save(players, 'players');
+            console.log(`📦 localStorage backup: ${localSaveSuccess ? 'SUCCESS' : 'FAILED'}`);
+
             // Save to backend API if available
             if (window.useBackendStorage) {
-                const response = await fetch('/api/team/save', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    credentials: 'same-origin',
-                    body: JSON.stringify({ data: { players } })
-                });
+                try {
+                    const response = await fetch('/api/team/save', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({ data: { players } })
+                    });
 
-                if (!response.ok) {
-                    throw new Error('Failed to save to server');
+                    if (!response.ok) {
+                        console.warn('⚠️ Backend save failed, using localStorage only');
+                        return localSaveSuccess;
+                    }
+
+                    console.log('✅ Saved to server + localStorage');
+                    return true;
+                } catch (backendError) {
+                    console.warn('⚠️ Backend unavailable, using localStorage only:', backendError);
+                    return localSaveSuccess;
                 }
-
-                console.log('✅ Saved to server');
-                return true;
             }
 
-            // Fallback to localStorage
-            return await database.save(players, 'players');
+            // Just localStorage
+            return localSaveSuccess;
         } catch (error) {
             console.error('❌ Storage save failed:', error);
             return false;
@@ -35,25 +45,33 @@ const storage = {
         try {
             console.log('📂 Loading players from storage...');
 
-            // Load from backend API if available
+            let players = [];
+
+            // Try to load from backend API if available
             if (window.useBackendStorage) {
-                const response = await fetch('/api/team/load', {
-                    credentials: 'same-origin'
-                });
+                try {
+                    const response = await fetch('/api/team/load', {
+                        credentials: 'same-origin'
+                    });
 
-                if (!response.ok) {
-                    throw new Error('Failed to load from server');
+                    if (response.ok) {
+                        const result = await response.json();
+                        players = result.data?.players || [];
+                        console.log(`📦 Loaded ${players.length} players from server`);
+
+                        // If server has data, return it
+                        if (players.length > 0) {
+                            return players;
+                        }
+                    }
+                } catch (backendError) {
+                    console.warn('⚠️ Backend unavailable, trying localStorage:', backendError);
                 }
-
-                const result = await response.json();
-                const players = result.data?.players || [];
-                console.log(`📦 Loaded ${players.length} players from server`);
-                return players;
             }
 
-            // Fallback to localStorage
-            const players = await database.load('players');
-            console.log(`📦 Loaded ${players.length} players from storage`);
+            // Fallback to localStorage (or if backend was empty)
+            players = await database.load('players');
+            console.log(`📦 Loaded ${players.length} players from localStorage`);
             return players || [];
         } catch (error) {
             console.error('❌ Storage load failed:', error);

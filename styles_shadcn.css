@@ -568,6 +568,38 @@ header {
   color: var(--success);
 }
 
+/* Availability badge */
+.availability-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: calc(var(--radius) - 2px);
+  font-size: 0.875rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: var(--font-sans);
+}
+
+.availability-badge.available {
+  background-color: oklch(90% 0.15 145);
+  color: oklch(35% 0.15 145);
+}
+
+.availability-badge.available:hover {
+  background-color: oklch(85% 0.15 145);
+  transform: scale(1.05);
+}
+
+.availability-badge.unavailable {
+  background-color: oklch(90% 0.15 25);
+  color: oklch(45% 0.15 25);
+}
+
+.availability-badge.unavailable:hover {
+  background-color: oklch(85% 0.15 25);
+  transform: scale(1.05);
+}
+
 .control-item input[type="radio"],
 .control-item input[type="checkbox"] {
   width: 1rem;

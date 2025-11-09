@@ -175,6 +175,7 @@ class PlayerManager {
         const addPlayerBtn = document.getElementById('add-player-btn');
         const cancelAddBtn = document.getElementById('cancel-add');
         const playerForm = document.getElementById('player-form');
+        const playerNameInput = document.getElementById('player-name');
         const skillSlider = document.getElementById('player-skill');
         const skillValue = document.getElementById('skill-value');
 
@@ -187,6 +188,17 @@ class PlayerManager {
                 e.preventDefault();
                 this.showAddPlayerForm();
             });
+
+            // Allow Enter key to activate the Add Player button
+            addPlayerBtn.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    this.showAddPlayerForm();
+                }
+            });
+
+            // Focus the Add Player button on page load for keyboard workflow
+            setTimeout(() => addPlayerBtn.focus(), 100);
         } else {
             console.error('❌ Add Player button not found!');
         }
@@ -201,6 +213,16 @@ class PlayerManager {
             playerForm.addEventListener('submit', (e) => {
                 e.preventDefault();
                 this.handleAddPlayer();
+            });
+        }
+
+        // Allow Enter key to submit from name input
+        if (playerNameInput) {
+            playerNameInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    this.handleAddPlayer();
+                }
             });
         }
 
@@ -255,7 +277,13 @@ class PlayerManager {
 
             this.addPlayer(name, skill);
             this.hideAddPlayerForm();
-            
+
+            // Focus back on Add Player button for quick keyboard workflow
+            const addPlayerBtn = document.getElementById('add-player-btn');
+            if (addPlayerBtn) {
+                setTimeout(() => addPlayerBtn.focus(), 50);
+            }
+
         } catch (error) {
             alert(error.message);
         }
@@ -310,12 +338,13 @@ class PlayerManager {
                            onchange="playerManager.setGoalkeeper(${player.id})">
                     <span class="control-label">GK</span>
                 </label>
-                <label class="control-item available-control">
-                    <input type="checkbox" class="available-check" data-id="${player.id}" 
-                           ${player.isAvailable ? 'checked' : ''} 
-                           onchange="playerManager.togglePlayerAvailability(${player.id})">
-                    <span class="control-label">Available</span>
-                </label>
+                <div class="control-item available-control">
+                    <button class="availability-badge ${player.isAvailable ? 'available' : 'unavailable'}"
+                            onclick="playerManager.togglePlayerAvailability(${player.id})"
+                            title="Click to toggle availability">
+                        ${player.isAvailable ? 'Available' : 'Unavailable'}
+                    </button>
+                </div>
                 <div class="control-item skill-control">
                     <span class="control-label">Skill</span>
                     <input type="range" min="1" max="5" value="${player.skill}" 

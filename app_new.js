@@ -178,9 +178,10 @@ class App {
             // Get settings
             const considerStrength = document.getElementById('consider-strength')?.checked || false;
             const considerFatigue = document.getElementById('consider-fatigue')?.checked || false;
+            const swapPositionsAtHalftime = document.getElementById('swap-positions-halftime')?.checked || false;
 
-            // Initialize rotation engine with selected substitutions per quarter
-            this.rotationEngine = new RotationEngine(playerManager, substitutionsPerQuarter);
+            // Initialize rotation engine with selected substitutions per quarter and halftime swap setting
+            this.rotationEngine = new RotationEngine(playerManager, substitutionsPerQuarter, swapPositionsAtHalftime);
 
             // Generate schedule
             console.log(`Generating schedule with ${substitutionsPerQuarter} substitutions per quarter...`);

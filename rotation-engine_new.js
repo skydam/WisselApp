@@ -1,11 +1,12 @@
 class RotationEngine {
-    constructor(playerManager, substitutionsPerQuarter = 2) {
+    constructor(playerManager, substitutionsPerQuarter = 2, swapPositionsAtHalftime = false) {
         this.playerManager = playerManager;
         this.schedule = [];
         this.gameLength = 70; // minutes
         this.quartersCount = 4;
         this.quarterLength = this.gameLength / this.quartersCount; // 17.5 minutes
         this.substitutionsPerQuarter = substitutionsPerQuarter;
+        this.swapPositionsAtHalftime = swapPositionsAtHalftime;
         // Calculate interval based on number of substitutions per quarter
         this.substitutionInterval = this.quarterLength / (this.substitutionsPerQuarter + 1);
         this.fieldPositions = [
@@ -17,28 +18,62 @@ class RotationEngine {
         this.allPositions = ['G', ...this.fieldPositions]; // G = Goalkeeper
     }
 
+    // Position swap mapping for halftime position changes
+    getSwappedPosition(position, quarter) {
+        // Only swap in second half (quarters 3-4) if enabled
+        if (!this.swapPositionsAtHalftime || quarter < 3) {
+            return position;
+        }
+
+        const swapMap = {
+            'F1': 'D1',  // Forward 1 → Defender 1
+            'F2': 'D2',  // Forward 2 → Defender 2
+            'F3': 'D3',  // Forward 3 → Defender 3
+            'M1': 'M3',  // Attacking mid → Defensive mid
+            'M2': 'M2',  // Central mid stays central
+            'M3': 'M1',  // Defensive mid → Attacking mid
+            'D1': 'F1',  // Defender 1 → Forward 1
+            'D2': 'F2',  // Defender 2 → Forward 2
+            'D3': 'F3',  // Defender 3 → Forward 3
+            'S1': 'S1'   // Sweeper stays defensive
+        };
+
+        return swapMap[position] || position;
+    }
+
     // Static method to calculate formation moment options based on roster size
     static getFormationOptions(availablePlayers) {
         const benchSize = availablePlayers - 11; // 11 = 10 outfield + 1 goalkeeper
 
+        // Calculate optimal subs per quarter for equal playing time
+        // More bench players = need more frequent subs for fairness
+        let optimalSubsPerQuarter;
+        if (benchSize <= 1) {
+            optimalSubsPerQuarter = 1; // Small bench: 1 sub per quarter (8.75 min max)
+        } else if (benchSize <= 3) {
+            optimalSubsPerQuarter = 1; // Medium bench: 1 sub per quarter
+        } else {
+            optimalSubsPerQuarter = 2; // Large bench: 2 subs per quarter for fairness
+        }
+
         const options = [
             {
-                name: 'Minimal',
-                substitutionsPerQuarter: 0,
-                totalMoments: 4,
-                intervalMinutes: 17.5,
-                description: 'Quarter starts only',
-                bestFor: '11-12 players (1-2 bench)',
-                recommended: benchSize <= 1
+                name: 'Optimal',
+                substitutionsPerQuarter: optimalSubsPerQuarter,
+                totalMoments: 4 + (optimalSubsPerQuarter * 4),
+                intervalMinutes: 17.5 / (optimalSubsPerQuarter + 1),
+                description: 'Best for equal playing time',
+                bestFor: `${availablePlayers} players (${benchSize} bench)`,
+                recommended: true // Always recommend optimal
             },
             {
-                name: 'Balanced',
+                name: 'Quick',
                 substitutionsPerQuarter: 1,
                 totalMoments: 8,
                 intervalMinutes: 8.75,
                 description: '1 substitution per quarter',
-                bestFor: '13-14 players (3-4 bench)',
-                recommended: benchSize >= 2 && benchSize <= 4
+                bestFor: 'Faster games, less disruption',
+                recommended: false
             },
             {
                 name: 'Detailed',
@@ -46,8 +81,8 @@ class RotationEngine {
                 totalMoments: 12,
                 intervalMinutes: 5.83,
                 description: '2 substitutions per quarter',
-                bestFor: '15+ players (5+ bench)',
-                recommended: benchSize >= 5
+                bestFor: 'Maximum rotation for large benches',
+                recommended: false
             }
         ];
 
@@ -191,20 +226,26 @@ class RotationEngine {
             // Assign positions randomly
             const shuffledPositions = [...this.fieldPositions].sort(() => Math.random() - 0.5);
             
+            const currentQuarter = moments[momentIndex].quarter;
+
             selectedPlayers.forEach((player, index) => {
+                const basePosition = shuffledPositions[index];
+                const actualPosition = this.getSwappedPosition(basePosition, currentQuarter);
+
                 player.isOnField = true;
-                player.fieldPosition = shuffledPositions[index];
-                player.assignedPosition = shuffledPositions[index];
+                player.fieldPosition = actualPosition;
+                player.assignedPosition = actualPosition;
+                player.basePosition = basePosition; // Store base position for tracking
                 player.consecutiveIntervals = 1;
-                
+
                 lineup.push({
                     player: player,
-                    position: shuffledPositions[index],
+                    position: actualPosition,
                     isSubstitution: false
                 });
             });
-            
-            console.log(`Initial lineup: ${selectedPlayers.map(p => `${p.name}(${p.fieldPosition})`).join(', ')}`);
+
+            console.log(`Initial lineup (Q${currentQuarter}): ${selectedPlayers.map(p => `${p.name}(${p.fieldPosition})`).join(', ')}`);
             return lineup;
         }
 
@@ -280,16 +321,28 @@ class RotationEngine {
             }
         });
 
+        const currentQuarter = moments[momentIndex].quarter;
+
         // Priority 3: Position variety - try to give players different positions
         playersToSubIn.forEach((newPlayer, index) => {
             const outgoingPlayer = playersToSubOut[index];
-            
-            // Try to assign a different position if player has played this position before
-            let assignedPosition = outgoingPlayer.assignedPosition;
-            
-            // For now, keep same position (can be enhanced later for position rotation)
-            newPlayer.fieldPosition = assignedPosition;
-            newPlayer.assignedPosition = assignedPosition;
+
+            // Use base position if available, otherwise use outgoing player's base
+            let basePosition = outgoingPlayer.basePosition || outgoingPlayer.assignedPosition;
+            let actualPosition = this.getSwappedPosition(basePosition, currentQuarter);
+
+            newPlayer.fieldPosition = actualPosition;
+            newPlayer.assignedPosition = actualPosition;
+            newPlayer.basePosition = basePosition; // Track base position
+        });
+
+        // Update positions for players staying on field (in case quarter changed)
+        outfieldPlayers.forEach(player => {
+            if (player.isOnField && !playersToSubIn.includes(player)) {
+                // Re-apply swap in case we transitioned to second half
+                let basePosition = player.basePosition || player.assignedPosition;
+                player.fieldPosition = this.getSwappedPosition(basePosition, currentQuarter);
+            }
         });
 
         // Build final lineup
@@ -302,7 +355,7 @@ class RotationEngine {
             });
         });
 
-        console.log(`Final lineup: ${finalOnField.map(p => `${p.name}(${p.fieldPosition})`).join(', ')}`);
+        console.log(`Final lineup (Q${currentQuarter}): ${finalOnField.map(p => `${p.name}(${p.fieldPosition})`).join(', ')}`);
         return lineup;
     }
 

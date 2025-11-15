@@ -73,31 +73,49 @@ window.addEventListener('load', async () => {
 
             // Check URL hash to determine which form to show
             const showSignUp = window.location.hash === '#sign-up';
+            const authContainer = document.getElementById('clerk-auth-container');
 
-            if (showSignUp) {
-                // Mount sign-up component
-                Clerk.mountSignUp(document.getElementById('clerk-auth-container'), {
-                    appearance: {
-                        elements: {
-                            rootBox: 'w-full',
-                            card: 'shadow-none border-0'
-                        }
-                    },
-                    afterSignUpUrl: '/',
-                    signInUrl: '#sign-in'
-                });
-            } else {
-                // Mount sign-in component
-                Clerk.mountSignIn(document.getElementById('clerk-auth-container'), {
-                    appearance: {
-                        elements: {
-                            rootBox: 'w-full',
-                            card: 'shadow-none border-0'
-                        }
-                    },
-                    afterSignInUrl: '/',
-                    signUpUrl: '#sign-up'
-                });
+            console.log('🔵 Auth container found:', !!authContainer);
+            console.log('🔵 Show sign up:', showSignUp);
+
+            if (!authContainer) {
+                console.error('❌ clerk-auth-container not found!');
+                throw new Error('Auth container element not found');
+            }
+
+            try {
+                if (showSignUp) {
+                    console.log('🔵 Mounting sign-up component...');
+                    // Mount sign-up component
+                    Clerk.mountSignUp(authContainer, {
+                        appearance: {
+                            elements: {
+                                rootBox: 'w-full',
+                                card: 'shadow-none border-0'
+                            }
+                        },
+                        afterSignUpUrl: '/',
+                        signInUrl: '#sign-in'
+                    });
+                    console.log('✅ Sign-up component mounted');
+                } else {
+                    console.log('🔵 Mounting sign-in component...');
+                    // Mount sign-in component
+                    Clerk.mountSignIn(authContainer, {
+                        appearance: {
+                            elements: {
+                                rootBox: 'w-full',
+                                card: 'shadow-none border-0'
+                            }
+                        },
+                        afterSignInUrl: '/',
+                        signUpUrl: '#sign-up'
+                    });
+                    console.log('✅ Sign-in component mounted');
+                }
+            } catch (mountError) {
+                console.error('❌ Failed to mount Clerk component:', mountError);
+                throw mountError;
             }
 
             // Listen for hash changes to switch between sign-in and sign-up

@@ -11,6 +11,24 @@ const PORT = process.env.PORT || 3000;
 // Initialize SQLite database
 const db = new Database('wisselapp.db');
 
+// Migration: Check if old schema exists and drop it
+try {
+  const tableInfo = db.prepare("PRAGMA table_info(users)").all();
+  const hasPasswordColumn = tableInfo.some(col => col.name === 'password');
+
+  if (hasPasswordColumn) {
+    console.log('⚠️  Detected old auth schema, migrating to Clerk schema...');
+    db.exec(`
+      DROP TABLE IF EXISTS team_data;
+      DROP TABLE IF EXISTS users;
+    `);
+    console.log('✅ Old tables dropped');
+  }
+} catch (error) {
+  // Table doesn't exist yet, that's fine
+  console.log('📦 Creating fresh database...');
+}
+
 // Create/update tables for Clerk
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
@@ -28,6 +46,8 @@ db.exec(`
     FOREIGN KEY (clerk_user_id) REFERENCES users(clerk_id)
   );
 `);
+
+console.log('✅ Database schema ready');
 
 // Middleware
 app.use(bodyParser.json());

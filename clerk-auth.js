@@ -5,197 +5,210 @@
  * Include this AFTER loading Clerk's script and BEFORE your app scripts.
  */
 
-// Wait for Clerk to be ready
-window.addEventListener('load', async () => {
-    console.log('🔵 Page loaded, initializing Clerk...');
+// Wait for Clerk object to be available, then initialize
+async function initializeClerk() {
+    console.log('🔵 Waiting for Clerk to be available...');
 
-    // Initialize Clerk
-    const clerkPublishableKey = 'pk_test_ZW5nYWdlZC10ZXJyYXBpbi0xNi5jbGVyay5hY2NvdW50cy5kZXYk';
+    // Wait for Clerk object to exist (max 10 seconds)
+    let attempts = 0;
+    while (!window.Clerk && attempts < 100) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        attempts++;
+    }
 
-    try {
-        console.log('🔵 Calling Clerk.load()...');
+    if (!window.Clerk) {
+        throw new Error('Clerk object not found after 10 seconds');
+    }
 
-        // Since publishableKey is already in the script tag's data-clerk-publishable-key,
-        // we don't need to pass it again. Just call load() to wait for initialization.
-        const loadPromise = Clerk.load();
+    console.log('✅ Clerk object found');
+    console.log('🔵 Calling Clerk.load()...');
 
-        const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Clerk.load() timed out after 10 seconds')), 10000)
-        );
+    // Since publishableKey is already in the script tag's data-clerk-publishable-key,
+    // we don't need to pass it again. Just call load() to wait for initialization.
+    const loadPromise = Clerk.load();
 
-        await Promise.race([loadPromise, timeoutPromise]);
+    const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Clerk.load() timed out after 10 seconds')), 10000)
+    );
 
-        console.log('✅ Clerk loaded successfully');
-        console.log('🔵 Clerk.user:', Clerk.user);
+    await Promise.race([loadPromise, timeoutPromise]);
 
-        // Remove loading screen
-        console.log('🔵 Removing loading screen...');
-        document.getElementById('clerk-loading')?.remove();
+    console.log('✅ Clerk loaded successfully');
+    console.log('🔵 Clerk.user:', Clerk.user);
 
-        // Check if user is signed in
-        if (Clerk.user) {
-            console.log('✅ User is signed in:', Clerk.user.primaryEmailAddress?.emailAddress);
+    // Remove loading screen
+    console.log('🔵 Removing loading screen...');
+    document.getElementById('clerk-loading')?.remove();
 
-            // Show main content
-            document.querySelector('.container')?.style.setProperty('display', 'block');
+    // Check if user is signed in
+    if (Clerk.user) {
+        console.log('✅ User is signed in:', Clerk.user.primaryEmailAddress?.emailAddress);
 
-            // Update UI with user info
-            updateUserInfo(Clerk.user);
+        // Show main content
+        document.querySelector('.container')?.style.setProperty('display', 'block');
 
-            // Enable backend storage
-            window.useBackendStorage = true;
+        // Update UI with user info
+        updateUserInfo(Clerk.user);
 
-            // Get Clerk session token for API calls
-            window.getClerkToken = async () => {
-                return await Clerk.session.getToken();
-            };
+        // Enable backend storage
+        window.useBackendStorage = true;
 
-        } else {
-            console.log('❌ User not signed in, showing landing page...');
+        // Get Clerk session token for API calls
+        window.getClerkToken = async () => {
+            return await Clerk.session.getToken();
+        };
 
-            // Create landing page
-            const landingPage = document.createElement('div');
-            landingPage.id = 'landing-page';
-            landingPage.style.cssText = `
-                min-height: 100vh;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                font-family: 'Geist Sans', system-ui, -apple-system, sans-serif;
-            `;
+    } else {
+        console.log('❌ User not signed in, showing landing page...');
 
-            landingPage.innerHTML = `
-                <div style="background: white; border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); padding: 48px; max-width: 480px; width: 90%; text-align: center;">
-                    <div style="margin-bottom: 32px;">
-                        <h1 style="font-size: 32px; font-weight: 700; color: #1a1a1a; margin: 0 0 12px 0;">🏒 Hockey Team Manager</h1>
-                        <p style="font-size: 16px; color: #666; margin: 0;">Manage your team, generate fair rotations, and track playing time</p>
-                    </div>
-                    <div id="clerk-auth-container"></div>
+        // Create landing page
+        const landingPage = document.createElement('div');
+        landingPage.id = 'landing-page';
+        landingPage.style.cssText = `
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Geist Sans', system-ui, -apple-system, sans-serif;
+        `;
+
+        landingPage.innerHTML = `
+            <div style="background: white; border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); padding: 48px; max-width: 480px; width: 90%; text-align: center;">
+                <div style="margin-bottom: 32px;">
+                    <h1 style="font-size: 32px; font-weight: 700; color: #1a1a1a; margin: 0 0 12px 0;">🏒 Hockey Team Manager</h1>
+                    <p style="font-size: 16px; color: #666; margin: 0;">Manage your team, generate fair rotations, and track playing time</p>
                 </div>
-            `;
+                <div id="clerk-auth-container"></div>
+            </div>
+        `;
 
-            document.body.appendChild(landingPage);
+        document.body.appendChild(landingPage);
 
-            // Check URL hash to determine which form to show
-            const showSignUp = window.location.hash === '#sign-up';
-            const authContainer = document.getElementById('clerk-auth-container');
+        // Check URL hash to determine which form to show
+        const showSignUp = window.location.hash === '#sign-up';
+        const authContainer = document.getElementById('clerk-auth-container');
 
-            console.log('🔵 Auth container found:', !!authContainer);
-            console.log('🔵 Show sign up:', showSignUp);
+        console.log('🔵 Auth container found:', !!authContainer);
+        console.log('🔵 Show sign up:', showSignUp);
 
-            if (!authContainer) {
-                console.error('❌ clerk-auth-container not found!');
-                throw new Error('Auth container element not found');
-            }
-
-            try {
-                if (showSignUp) {
-                    console.log('🔵 Mounting sign-up component...');
-                    // Mount sign-up component
-                    Clerk.mountSignUp(authContainer, {
-                        appearance: {
-                            elements: {
-                                rootBox: 'w-full',
-                                card: 'shadow-none border-0'
-                            }
-                        },
-                        afterSignUpUrl: '/',
-                        signInUrl: '#sign-in'
-                    });
-                    console.log('✅ Sign-up component mounted');
-                } else {
-                    console.log('🔵 Mounting sign-in component...');
-                    // Mount sign-in component
-                    Clerk.mountSignIn(authContainer, {
-                        appearance: {
-                            elements: {
-                                rootBox: 'w-full',
-                                card: 'shadow-none border-0'
-                            }
-                        },
-                        afterSignInUrl: '/',
-                        signUpUrl: '#sign-up'
-                    });
-                    console.log('✅ Sign-in component mounted');
-                }
-            } catch (mountError) {
-                console.error('❌ Failed to mount Clerk component:', mountError);
-                throw mountError;
-            }
-
-            // Listen for hash changes to switch between sign-in and sign-up
-            window.addEventListener('hashchange', () => {
-                const container = document.getElementById('clerk-auth-container');
-                if (!container) return;
-
-                // Clear the container
-                container.innerHTML = '';
-
-                // Mount the appropriate component based on hash
-                if (window.location.hash === '#sign-up') {
-                    Clerk.mountSignUp(container, {
-                        appearance: {
-                            elements: {
-                                rootBox: 'w-full',
-                                card: 'shadow-none border-0'
-                            }
-                        },
-                        afterSignUpUrl: '/',
-                        signInUrl: '#sign-in'
-                    });
-                } else {
-                    Clerk.mountSignIn(container, {
-                        appearance: {
-                            elements: {
-                                rootBox: 'w-full',
-                                card: 'shadow-none border-0'
-                            }
-                        },
-                        afterSignInUrl: '/',
-                        signUpUrl: '#sign-up'
-                    });
-                }
-            });
-
-            // Keep main content hidden
-            document.querySelector('.container')?.style.setProperty('display', 'none');
+        if (!authContainer) {
+            console.error('❌ clerk-auth-container not found!');
+            throw new Error('Auth container element not found');
         }
 
-        // Setup logout button
-        setupLogoutButton();
-
-        // Track initial state to prevent reload loop
-        let initialAuthState = Clerk.user ? 'authenticated' : 'unauthenticated';
-        let hasReloaded = sessionStorage.getItem('clerk_just_signed_in') === 'true';
-
-        // Clear the reload flag if we're already authenticated
-        if (initialAuthState === 'authenticated' && hasReloaded) {
-            sessionStorage.removeItem('clerk_just_signed_in');
+        try {
+            if (showSignUp) {
+                console.log('🔵 Mounting sign-up component...');
+                // Mount sign-up component
+                Clerk.mountSignUp(authContainer, {
+                    appearance: {
+                        elements: {
+                            rootBox: 'w-full',
+                            card: 'shadow-none border-0'
+                        }
+                    },
+                    afterSignUpUrl: '/',
+                    signInUrl: '#sign-in'
+                });
+                console.log('✅ Sign-up component mounted');
+            } else {
+                console.log('🔵 Mounting sign-in component...');
+                // Mount sign-in component
+                Clerk.mountSignIn(authContainer, {
+                    appearance: {
+                        elements: {
+                            rootBox: 'w-full',
+                            card: 'shadow-none border-0'
+                        }
+                    },
+                    afterSignInUrl: '/',
+                    signUpUrl: '#sign-up'
+                });
+                console.log('✅ Sign-in component mounted');
+            }
+        } catch (mountError) {
+            console.error('❌ Failed to mount Clerk component:', mountError);
+            throw mountError;
         }
 
-        // Listen for Clerk auth changes
-        Clerk.addListener((state) => {
-            const currentState = state.user ? 'authenticated' : 'unauthenticated';
+        // Listen for hash changes to switch between sign-in and sign-up
+        window.addEventListener('hashchange', () => {
+            const container = document.getElementById('clerk-auth-container');
+            if (!container) return;
 
-            // Only act on actual state changes
-            if (currentState !== initialAuthState) {
-                if (state.user && !hasReloaded) {
-                    // User just signed in
-                    console.log('User signed in:', state.user.primaryEmailAddress?.emailAddress);
-                    sessionStorage.setItem('clerk_just_signed_in', 'true');
-                    window.location.reload();
-                } else if (!state.user) {
-                    // User signed out
-                    console.log('User signed out');
-                    sessionStorage.removeItem('clerk_just_signed_in');
-                    window.location.href = '/';
-                }
+            // Clear the container
+            container.innerHTML = '';
 
-                initialAuthState = currentState;
+            // Mount the appropriate component based on hash
+            if (window.location.hash === '#sign-up') {
+                Clerk.mountSignUp(container, {
+                    appearance: {
+                        elements: {
+                            rootBox: 'w-full',
+                            card: 'shadow-none border-0'
+                        }
+                    },
+                    afterSignUpUrl: '/',
+                    signInUrl: '#sign-in'
+                });
+            } else {
+                Clerk.mountSignIn(container, {
+                    appearance: {
+                        elements: {
+                            rootBox: 'w-full',
+                            card: 'shadow-none border-0'
+                        }
+                    },
+                    afterSignInUrl: '/',
+                    signUpUrl: '#sign-up'
+                });
             }
         });
 
+        // Keep main content hidden
+        document.querySelector('.container')?.style.setProperty('display', 'none');
+    }
+
+    // Setup logout button
+    setupLogoutButton();
+
+    // Track initial state to prevent reload loop
+    let initialAuthState = Clerk.user ? 'authenticated' : 'unauthenticated';
+    let hasReloaded = sessionStorage.getItem('clerk_just_signed_in') === 'true';
+
+    // Clear the reload flag if we're already authenticated
+    if (initialAuthState === 'authenticated' && hasReloaded) {
+        sessionStorage.removeItem('clerk_just_signed_in');
+    }
+
+    // Listen for Clerk auth changes
+    Clerk.addListener((state) => {
+        const currentState = state.user ? 'authenticated' : 'unauthenticated';
+
+        // Only act on actual state changes
+        if (currentState !== initialAuthState) {
+            if (state.user && !hasReloaded) {
+                // User just signed in
+                console.log('User signed in:', state.user.primaryEmailAddress?.emailAddress);
+                sessionStorage.setItem('clerk_just_signed_in', 'true');
+                window.location.reload();
+            } else if (!state.user) {
+                // User signed out
+                console.log('User signed out');
+                sessionStorage.removeItem('clerk_just_signed_in');
+                window.location.href = '/';
+            }
+
+            initialAuthState = currentState;
+        }
+    });
+}
+
+// Start initialization when page loads
+window.addEventListener('load', async () => {
+    try {
+        await initializeClerk();
     } catch (error) {
         console.error('❌ Clerk initialization failed:', error);
 

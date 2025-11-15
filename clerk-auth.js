@@ -15,10 +15,9 @@ window.addEventListener('load', async () => {
     try {
         console.log('🔵 Calling Clerk.load()...');
 
-        // Add timeout to prevent infinite hanging
-        const loadPromise = Clerk.load({
-            publishableKey: clerkPublishableKey
-        });
+        // Since publishableKey is already in the script tag's data-clerk-publishable-key,
+        // we don't need to pass it again. Just call load() to wait for initialization.
+        const loadPromise = Clerk.load();
 
         const timeoutPromise = new Promise((_, reject) =>
             setTimeout(() => reject(new Error('Clerk.load() timed out after 10 seconds')), 10000)

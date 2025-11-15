@@ -9,6 +9,9 @@
 async function initializeClerk() {
     console.log('🔵 Waiting for Clerk to be available...');
 
+    // Clerk publishable key (this is a public key, safe to include in client-side code)
+    const clerkPublishableKey = 'pk_test_ZW5nYWdlZC10ZXJyYXBpbi0xNi5jbGVyay5hY2NvdW50cy5kZXYk';
+
     // Wait for Clerk object to exist (max 10 seconds)
     let attempts = 0;
     while (!window.Clerk && attempts < 100) {

@@ -167,51 +167,127 @@ The app has **dual storage** system:
 3. ✅ Pushed to GitHub: `https://github.com/skydam/WisselApp.git`
 4. ✅ Commit: "Update file permissions and add Claude Code to gitignore" (a8d043e)
 
-### ACTION REQUIRED ON MAC
+### ✅ RESOLVED ON MAC (November 15, 2025)
 
-**When resuming on Mac, check these:**
+**Status**: Player data confirmed in localStorage!
 
-1. **Check localStorage for player data**:
-   - Open: `http://localhost:8001/restore-localStorage.html`
-   - Click "Check localStorage" button
-   - See if players are stored there
+**Issue Found**: `restore-localStorage.html` was checking wrong keys
+- Was checking: `players_primary`, `players_backup1`, `players_backup2` ❌
+- Should check: `hockey_team_players`, `hockey_team_players_backup1`, `hockey_team_players_backup2` ✅
+- **Fixed**: Updated restore page to use correct keys (restore-localStorage.html:86)
 
-2. **Backend server test**:
+**Data Location**: Players ARE stored in Mac localStorage under correct keys
+
+### Backend Server Status on Mac
+
+1. **Node.js backend**: Still won't compile (same better-sqlite3 issue as PC)
+   - Node.js v23.10.0 too new for better-sqlite3
+   - Requires C++20, compilation fails
+   - **Not needed**: App works perfectly with localStorage alone
+
+2. **Python server**: ✅ Working perfectly
    ```bash
-   cd /path/to/WisselApp
-   node server.js
-   # Should start on port 3000
-   # Check http://localhost:3000
+   python3 -m http.server 8001
+   # Access: http://localhost:8001/index.html
    ```
 
-3. **Check database on Mac**:
-   ```bash
-   sqlite3 wisselapp.db "SELECT COUNT(*) FROM team_data;"
-   sqlite3 wisselapp.db "SELECT * FROM team_data;"
-   ```
+### Database Status on Mac
 
-4. **If data found on Mac**:
-   - Use restore tools to migrate/backup
-   - Consider exporting players via the export function
-   - May need to sync database across machines
+**Database file**: `wisselapp.db` exists but is mostly empty:
+- **Users table**: 1 user (jvharten@gmail.com, created Oct 4, 2025)
+- **Team_data table**: 0 records (empty)
+
+**Conclusion**: All player data lives in localStorage, not in the database. This is fine - the app is designed to work this way!
 
 ### File Name Discrepancy Note
 - Documentation mentions `index_new.html` but actual file is `index.html`
 - All `_new.js` files exist as documented
 - This is correct - just the HTML was renamed at some point
 
-### Useful Recovery Tools
-- `restore-localStorage.html` - Check/restore from browser localStorage
+### Useful Tools
+- ✅ `restore-localStorage.html` - Now fixed to check correct localStorage keys
 - `restore-data.html` - Additional restore options
 - `check-storage.html` - Storage diagnostics
 - Test data button in main app loads 15 sample players
+- Auto-export feature saves timestamped backups in localStorage
 
-### Next Steps
-1. Run on Mac to locate actual player data
-2. Consider fixing Node.js compatibility (downgrade Node or update better-sqlite3)
-3. Set up proper data sync between machines if needed
-4. Export player data as backup JSON files for safety
+### How to Access on Mac
+```bash
+# Start Python server (recommended)
+python3 -m http.server 8001
+
+# Open in browser
+open http://localhost:8001/index.html
+
+# To check localStorage
+open http://localhost:8001/restore-localStorage.html
+```
+
+### Optional: Fixing Node.js Backend (if needed for cross-machine sync)
+The backend isn't necessary for single-machine use, but if you want it:
+1. Downgrade Node.js to v20.x or earlier, OR
+2. Wait for better-sqlite3 to support Node v23, OR
+3. Use a different database library
+
+## Railway Deployment Setup
+
+### Authentication System
+**Migrated to Clerk** (November 15, 2025)
+- Professional OAuth 2.0 authentication
+- Password recovery via email
+- Open signup (anyone can create account)
+- Free tier: up to 10,000 users
+- Backend: `server.js` (formerly `server-clerk.js`)
+- Old custom auth backed up as: `server-custom-auth.js`
+
+### Required Environment Variables (Railway Dashboard)
+```bash
+CLERK_PUBLISHABLE_KEY=pk_live_xxxxx...
+CLERK_SECRET_KEY=sk_live_xxxxx...
+NODE_ENV=production
+# PORT is set automatically by Railway
+```
+
+### Clerk Setup Instructions
+1. Create account at https://clerk.com
+2. Create new application
+3. Enable Email/Password authentication
+4. Copy API keys from Dashboard → API Keys
+5. Add keys to Railway environment variables
+
+### Railway Configuration
+- **File**: `railway.json`
+- **Builder**: NIXPACKS (auto-detects Node.js)
+- **Start command**: `node server.js`
+- **Node version**: 20.x (specified in package.json)
+- **Database**: SQLite (wisselapp.db created on first run)
+- **Restart policy**: ON_FAILURE (max 10 retries)
+
+### Deployment Steps
+1. **GitHub**: Code already pushed to `https://github.com/skydam/WisselApp.git`
+2. **Railway Project**:
+   - Connect GitHub repo: `skydam/WisselApp`
+   - Branch: `master`
+   - Auto-deploy: enabled
+3. **Environment Variables**: Set Clerk keys in Railway dashboard
+4. **Deploy**: Railway auto-deploys on push
+5. **Domain**: Railway provides default: `*.up.railway.app`
+
+### Key Changes from Local Development
+- **Authentication**: Custom auth → Clerk
+- **Signup**: Email whitelist → Open signup
+- **Node version**: v23 → v20 (better-sqlite3 compatibility)
+- **Database**: Starts fresh on Railway (not migrated from local)
+
+### Testing Checklist
+- [ ] App loads at Railway URL
+- [ ] User signup works
+- [ ] User login works
+- [ ] Password recovery works
+- [ ] Player management functions
+- [ ] Data persists to database
+- [ ] Game schedule generation works
 
 ---
-**Last Updated**: November 15, 2025
-**Status**: Production Ready ✅ (with localStorage fallback on PC)
+**Last Updated**: November 15, 2025 (Railway deployment prep)
+**Status**: Ready for Railway Deployment ✅ (Clerk auth configured, Node 20.x, railway.json created)

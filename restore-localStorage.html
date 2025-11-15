@@ -83,7 +83,7 @@
         }
 
         function checkStorage() {
-            const keys = ['players_primary', 'players_backup1', 'players_backup2'];
+            const keys = ['hockey_team_players', 'hockey_team_players_backup1', 'hockey_team_players_backup2'];
             let found = false;
 
             for (const key of keys) {
@@ -91,8 +91,12 @@
                 if (data) {
                     try {
                         const parsed = JSON.parse(data);
-                        showStatus(`Found ${parsed.length || 0} players in ${key}`, 'success');
-                        showData(parsed);
+                        // Handle new format with metadata
+                        const players = parsed.data || parsed;
+                        const count = Array.isArray(players) ? players.length : 0;
+                        const timestamp = parsed.timestamp || 'unknown';
+                        showStatus(`Found ${count} players in ${key} (saved: ${timestamp})`, 'success');
+                        showData(players);
                         found = true;
                         break;
                     } catch (e) {
@@ -133,14 +137,16 @@
         }
 
         async function migrateToDatabase() {
-            const keys = ['players_primary', 'players_backup1', 'players_backup2'];
+            const keys = ['hockey_team_players', 'hockey_team_players_backup1', 'hockey_team_players_backup2'];
             let players = null;
 
             for (const key of keys) {
                 const data = localStorage.getItem(key);
                 if (data) {
                     try {
-                        players = JSON.parse(data);
+                        const parsed = JSON.parse(data);
+                        // Handle new format with metadata
+                        players = parsed.data || parsed;
                         break;
                     } catch (e) {
                         console.error('Parse error:', e);
@@ -148,7 +154,7 @@
                 }
             }
 
-            if (!players || players.length === 0) {
+            if (!players || !Array.isArray(players) || players.length === 0) {
                 showStatus('No data to migrate from localStorage', 'error');
                 return;
             }

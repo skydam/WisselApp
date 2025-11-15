@@ -1,37 +1,31 @@
+require('dotenv').config();
 const express = require('express');
-const session = require('express-session');
 const bodyParser = require('body-parser');
-const bcrypt = require('bcryptjs');
+const { ClerkExpressRequireAuth } = require('@clerk/clerk-sdk-node');
 const Database = require('better-sqlite3');
 const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Email whitelist - only these emails can sign up
-const ALLOWED_EMAILS = [
-  'jvharten@gmail.com'
-  // Add more emails here as needed
-];
-
 // Initialize SQLite database
 const db = new Database('wisselapp.db');
 
-// Create tables
+// Create/update tables for Clerk
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    clerk_id TEXT PRIMARY KEY,
     email TEXT UNIQUE NOT NULL,
-    password TEXT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 
   CREATE TABLE IF NOT EXISTS team_data (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL,
+    clerk_user_id TEXT NOT NULL,
     data TEXT NOT NULL,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id)
+    FOREIGN KEY (clerk_user_id) REFERENCES users(clerk_id)
   );
 `);
 
@@ -42,130 +36,74 @@ app.use(bodyParser.urlencoded({ extended: true }));
 // Trust Railway's proxy
 app.set('trust proxy', 1);
 
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'hockey-team-secret-key-change-in-production',
-  resave: false,
-  saveUninitialized: false,
-  proxy: true,
-  cookie: {
-    secure: process.env.NODE_ENV === 'production',
-    httpOnly: true,
-    sameSite: 'lax',
-    maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
-  }
-}));
-
 // Serve static files
 app.use(express.static('.'));
 
-// Auth middleware
-function requireAuth(req, res, next) {
-  if (!req.session.userId) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-  next();
-}
-
-// API Routes
-
-// Sign up
-app.post('/api/signup', async (req, res) => {
-  const { email, password } = req.body;
-
-  if (!email || !password) {
-    return res.status(400).json({ error: 'Email and password required' });
-  }
-
-  // Check if email is whitelisted
-  if (!ALLOWED_EMAILS.includes(email.toLowerCase())) {
-    return res.status(403).json({ error: 'This email is not authorized to create an account. Contact the administrator for access.' });
-  }
-
-  if (password.length < 6) {
-    return res.status(400).json({ error: 'Password must be at least 6 characters' });
-  }
-
+// Clerk webhook to sync users
+app.post('/api/webhooks/clerk', bodyParser.raw({ type: 'application/json' }), (req, res) => {
   try {
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const stmt = db.prepare('INSERT INTO users (email, password) VALUES (?, ?)');
-    const result = stmt.run(email.toLowerCase(), hashedPassword);
+    const evt = JSON.parse(req.body);
 
-    req.session.userId = result.lastInsertRowid;
-    res.json({ success: true, message: 'Account created successfully' });
+    // Handle user.created event
+    if (evt.type === 'user.created') {
+      const { id, email_addresses } = evt.data;
+      const email = email_addresses[0]?.email_address;
+
+      if (email) {
+        const stmt = db.prepare('INSERT OR REPLACE INTO users (clerk_id, email, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)');
+        stmt.run(id, email.toLowerCase());
+        console.log(`User synced: ${email}`);
+      }
+    }
+
+    // Handle user.updated event
+    if (evt.type === 'user.updated') {
+      const { id, email_addresses } = evt.data;
+      const email = email_addresses[0]?.email_address;
+
+      if (email) {
+        const stmt = db.prepare('UPDATE users SET email = ?, updated_at = CURRENT_TIMESTAMP WHERE clerk_id = ?');
+        stmt.run(email.toLowerCase(), id);
+      }
+    }
+
+    // Handle user.deleted event
+    if (evt.type === 'user.deleted') {
+      const { id } = evt.data;
+      db.prepare('DELETE FROM users WHERE clerk_id = ?').run(id);
+      db.prepare('DELETE FROM team_data WHERE clerk_user_id = ?').run(id);
+    }
+
+    res.json({ received: true });
   } catch (error) {
-    if (error.message.includes('UNIQUE constraint failed')) {
-      res.status(400).json({ error: 'Email already registered' });
-    } else {
-      res.status(500).json({ error: 'Server error' });
-    }
+    console.error('Webhook error:', error);
+    res.status(400).json({ error: 'Webhook error' });
   }
 });
 
-// Login
-app.post('/api/login', async (req, res) => {
-  const { email, password } = req.body;
-
-  if (!email || !password) {
-    return res.status(400).json({ error: 'Email and password required' });
-  }
-
-  try {
-    const stmt = db.prepare('SELECT * FROM users WHERE email = ?');
-    const user = stmt.get(email.toLowerCase());
-
-    if (!user) {
-      return res.status(401).json({ error: 'Invalid email or password' });
-    }
-
-    const validPassword = await bcrypt.compare(password, user.password);
-    if (!validPassword) {
-      return res.status(401).json({ error: 'Invalid email or password' });
-    }
-
-    req.session.userId = user.id;
-    res.json({ success: true, message: 'Login successful' });
-  } catch (error) {
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-// Logout
-app.post('/api/logout', (req, res) => {
-  req.session.destroy();
-  res.json({ success: true, message: 'Logged out successfully' });
-});
-
-// Check auth status
-app.get('/api/auth/status', (req, res) => {
-  if (req.session.userId) {
-    const stmt = db.prepare('SELECT id, email FROM users WHERE id = ?');
-    const user = stmt.get(req.session.userId);
-    res.json({ authenticated: true, user });
-  } else {
-    res.json({ authenticated: false });
-  }
-});
-
-// Save team data
-app.post('/api/team/save', requireAuth, (req, res) => {
+// Save team data - protected by Clerk
+app.post('/api/team/save', ClerkExpressRequireAuth(), (req, res) => {
   const { data } = req.body;
+  const userId = req.auth.userId; // Clerk provides this
 
   try {
-    const stmt = db.prepare(`
-      INSERT INTO team_data (user_id, data, updated_at)
-      VALUES (?, ?, CURRENT_TIMESTAMP)
-      ON CONFLICT(user_id) DO UPDATE SET data = ?, updated_at = CURRENT_TIMESTAMP
-    `);
+    // Ensure user exists in our database
+    const user = db.prepare('SELECT clerk_id FROM users WHERE clerk_id = ?').get(userId);
+    if (!user) {
+      // User not synced yet, create entry
+      const email = req.auth.sessionClaims?.email || 'unknown@email.com';
+      db.prepare('INSERT INTO users (clerk_id, email) VALUES (?, ?)').run(userId, email);
+    }
 
-    // SQLite doesn't support ON CONFLICT with user_id directly, so we check first
-    const existing = db.prepare('SELECT id FROM team_data WHERE user_id = ?').get(req.session.userId);
+    // Check if team data exists for this user
+    const existing = db.prepare('SELECT id FROM team_data WHERE clerk_user_id = ?').get(userId);
 
     if (existing) {
-      db.prepare('UPDATE team_data SET data = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?')
-        .run(JSON.stringify(data), req.session.userId);
+      db.prepare('UPDATE team_data SET data = ?, updated_at = CURRENT_TIMESTAMP WHERE clerk_user_id = ?')
+        .run(JSON.stringify(data), userId);
     } else {
-      db.prepare('INSERT INTO team_data (user_id, data) VALUES (?, ?)')
-        .run(req.session.userId, JSON.stringify(data));
+      db.prepare('INSERT INTO team_data (clerk_user_id, data) VALUES (?, ?)')
+        .run(userId, JSON.stringify(data));
     }
 
     res.json({ success: true, message: 'Team data saved' });
@@ -175,11 +113,13 @@ app.post('/api/team/save', requireAuth, (req, res) => {
   }
 });
 
-// Load team data
-app.get('/api/team/load', requireAuth, (req, res) => {
+// Load team data - protected by Clerk
+app.get('/api/team/load', ClerkExpressRequireAuth(), (req, res) => {
+  const userId = req.auth.userId; // Clerk provides this
+
   try {
-    const stmt = db.prepare('SELECT data FROM team_data WHERE user_id = ?');
-    const result = stmt.get(req.session.userId);
+    const stmt = db.prepare('SELECT data FROM team_data WHERE clerk_user_id = ?');
+    const result = stmt.get(userId);
 
     if (result) {
       res.json({ success: true, data: JSON.parse(result.data) });
@@ -192,15 +132,12 @@ app.get('/api/team/load', requireAuth, (req, res) => {
   }
 });
 
-// Serve login page for root
+// Serve main app (Clerk handles auth on frontend)
 app.get('/', (req, res) => {
-  if (req.session.userId) {
-    res.sendFile(path.join(__dirname, 'index.html'));
-  } else {
-    res.sendFile(path.join(__dirname, 'login.html'));
-  }
+  res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`🏒 Hockey Team Manager server running on port ${PORT}`);
+  console.log(`📍 Clerk integration: ${process.env.CLERK_SECRET_KEY ? 'Active' : 'Missing API keys!'}`);
 });

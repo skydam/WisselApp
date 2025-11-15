@@ -7,17 +7,23 @@
 
 // Wait for Clerk to be ready
 window.addEventListener('load', async () => {
+    console.log('🔵 Page loaded, initializing Clerk...');
+
     // Initialize Clerk
     const clerkPublishableKey = 'pk_test_ZW5nYWdlZC10ZXJyYXBpbi0xNi5jbGVyay5hY2NvdW50cy5kZXYk';
 
     try {
+        console.log('🔵 Calling Clerk.load()...');
+
         await Clerk.load({
             publishableKey: clerkPublishableKey
         });
 
         console.log('✅ Clerk loaded successfully');
+        console.log('🔵 Clerk.user:', Clerk.user);
 
         // Remove loading screen
+        console.log('🔵 Removing loading screen...');
         document.getElementById('clerk-loading')?.remove();
 
         // Check if user is signed in
@@ -168,7 +174,28 @@ window.addEventListener('load', async () => {
 
     } catch (error) {
         console.error('❌ Clerk initialization failed:', error);
-        alert('Authentication system failed to load. Please refresh the page.');
+
+        // Remove loading screen even on error
+        document.getElementById('clerk-loading')?.remove();
+
+        // Show error message
+        const errorDiv = document.createElement('div');
+        errorDiv.style.cssText = `
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Geist Sans', sans-serif;
+        `;
+        errorDiv.innerHTML = `
+            <div style="background: white; border-radius: 16px; padding: 48px; max-width: 480px; text-align: center;">
+                <h2 style="color: #e53e3e; margin: 0 0 16px 0;">Authentication Error</h2>
+                <p style="color: #666; margin: 0 0 24px 0;">Failed to load authentication system: ${error.message}</p>
+                <button onclick="window.location.reload()" style="background: #667eea; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 16px;">Reload Page</button>
+            </div>
+        `;
+        document.body.appendChild(errorDiv);
     }
 });
 

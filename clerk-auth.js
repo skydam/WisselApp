@@ -36,31 +36,47 @@ window.addEventListener('load', async () => {
             };
 
         } else {
-            console.log('❌ User not signed in, redirecting...');
+            console.log('❌ User not signed in, showing landing page...');
 
-            // Mount Clerk sign-in component
-            const signInDiv = document.createElement('div');
-            signInDiv.id = 'clerk-sign-in';
-            signInDiv.style.cssText = `
-                position: fixed;
-                top: 50%;
-                left: 50%;
-                transform: translate(-50%, -50%);
-                z-index: 1000;
+            // Create landing page
+            const landingPage = document.createElement('div');
+            landingPage.id = 'landing-page';
+            landingPage.style.cssText = `
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                font-family: 'Geist Sans', system-ui, -apple-system, sans-serif;
             `;
-            document.body.appendChild(signInDiv);
 
-            Clerk.mountSignIn(signInDiv, {
+            landingPage.innerHTML = `
+                <div style="background: white; border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); padding: 48px; max-width: 480px; width: 90%; text-align: center;">
+                    <div style="margin-bottom: 32px;">
+                        <h1 style="font-size: 32px; font-weight: 700; color: #1a1a1a; margin: 0 0 12px 0;">🏒 Hockey Team Manager</h1>
+                        <p style="font-size: 16px; color: #666; margin: 0;">Manage your team, generate fair rotations, and track playing time</p>
+                    </div>
+                    <div id="clerk-sign-in-container"></div>
+                    <div style="margin-top: 24px; font-size: 14px; color: #999;">
+                        <p style="margin: 0;">Don't have an account? Click "Sign up" below</p>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(landingPage);
+
+            // Mount Clerk sign-in component in the landing page
+            Clerk.mountSignIn(document.getElementById('clerk-sign-in-container'), {
                 appearance: {
                     elements: {
-                        rootBox: 'mx-auto',
-                        card: 'shadow-lg'
+                        rootBox: 'w-full',
+                        card: 'shadow-none border-0'
                     }
                 },
                 afterSignInUrl: '/'
             });
 
-            // Hide main content while not authenticated
+            // Keep main content hidden
             document.querySelector('.container')?.style.setProperty('display', 'none');
         }
 
@@ -76,8 +92,8 @@ window.addEventListener('load', async () => {
                 // Show main content
                 document.querySelector('.container')?.style.removeProperty('display');
 
-                // Remove sign-in modal if it exists
-                document.getElementById('clerk-sign-in')?.remove();
+                // Remove landing page if it exists
+                document.getElementById('landing-page')?.remove();
 
                 // Reload to initialize app
                 window.location.reload();

@@ -131,5 +131,87 @@ open http://localhost:8001/index_new.html
 - Statistics dashboard
 
 ---
-**Last Updated**: September 2025  
-**Status**: Production Ready ✅
+
+## IMPORTANT: Recent Session Notes (November 15, 2025)
+
+### PC Session Summary
+**Location**: Windows PC (`C:\Users\PCJeroen\OneDrive\WisselApp`)
+**Issue Discovered**: Player data missing on PC
+
+### What We Found
+1. **Database Status**:
+   - `wisselapp.db` exists but `team_data` table is empty (0 records)
+   - User likely created/managed players on Mac, not PC
+
+2. **Backend Server Issue**:
+   - Node.js backend (`server.js`) won't start on PC
+   - `better-sqlite3` module has compilation error with Node.js v24.6.0
+   - Error: "C++20 or later required" - version mismatch between Node v24 and better-sqlite3
+   - Needs `npm rebuild better-sqlite3` but fails on Windows with current toolchain
+
+3. **Workaround Applied**:
+   - App designed to work with localStorage even without backend
+   - Started Python HTTP server instead: `python -m http.server 8001`
+   - Access via: `http://localhost:8001/index.html`
+
+### Data Storage Architecture
+The app has **dual storage** system:
+- **Primary**: Browser localStorage (always works, per-browser/per-machine)
+- **Secondary**: SQLite database via Node.js backend (syncs across browsers when logged in)
+
+**Important**: localStorage is browser-specific and machine-specific!
+
+### Changes Made This Session
+1. ✅ Updated `.gitignore` to exclude `.claude/` directory
+2. ✅ Fixed file permissions (removed executable bits from scripts)
+3. ✅ Pushed to GitHub: `https://github.com/skydam/WisselApp.git`
+4. ✅ Commit: "Update file permissions and add Claude Code to gitignore" (a8d043e)
+
+### ACTION REQUIRED ON MAC
+
+**When resuming on Mac, check these:**
+
+1. **Check localStorage for player data**:
+   - Open: `http://localhost:8001/restore-localStorage.html`
+   - Click "Check localStorage" button
+   - See if players are stored there
+
+2. **Backend server test**:
+   ```bash
+   cd /path/to/WisselApp
+   node server.js
+   # Should start on port 3000
+   # Check http://localhost:3000
+   ```
+
+3. **Check database on Mac**:
+   ```bash
+   sqlite3 wisselapp.db "SELECT COUNT(*) FROM team_data;"
+   sqlite3 wisselapp.db "SELECT * FROM team_data;"
+   ```
+
+4. **If data found on Mac**:
+   - Use restore tools to migrate/backup
+   - Consider exporting players via the export function
+   - May need to sync database across machines
+
+### File Name Discrepancy Note
+- Documentation mentions `index_new.html` but actual file is `index.html`
+- All `_new.js` files exist as documented
+- This is correct - just the HTML was renamed at some point
+
+### Useful Recovery Tools
+- `restore-localStorage.html` - Check/restore from browser localStorage
+- `restore-data.html` - Additional restore options
+- `check-storage.html` - Storage diagnostics
+- Test data button in main app loads 15 sample players
+
+### Next Steps
+1. Run on Mac to locate actual player data
+2. Consider fixing Node.js compatibility (downgrade Node or update better-sqlite3)
+3. Set up proper data sync between machines if needed
+4. Export player data as backup JSON files for safety
+
+---
+**Last Updated**: November 15, 2025
+**Status**: Production Ready ✅ (with localStorage fallback on PC)

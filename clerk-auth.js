@@ -15,9 +15,16 @@ window.addEventListener('load', async () => {
     try {
         console.log('🔵 Calling Clerk.load()...');
 
-        await Clerk.load({
+        // Add timeout to prevent infinite hanging
+        const loadPromise = Clerk.load({
             publishableKey: clerkPublishableKey
         });
+
+        const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Clerk.load() timed out after 10 seconds')), 10000)
+        );
+
+        await Promise.race([loadPromise, timeoutPromise]);
 
         console.log('✅ Clerk loaded successfully');
         console.log('🔵 Clerk.user:', Clerk.user);

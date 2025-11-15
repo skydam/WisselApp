@@ -21,26 +21,28 @@ async function initializeClerk() {
     }
 
     console.log('✅ Clerk object found');
-    console.log('🔵 Waiting for Clerk to initialize...');
+    console.log('🔵 Checking Clerk initialization status...');
 
-    // Since the script tag has data-clerk-publishable-key, Clerk auto-initializes.
-    // Instead of calling Clerk.load(), wait for Clerk to be ready by polling its state
-    let initAttempts = 0;
-    while (initAttempts < 100) {
-        // Check if Clerk has initialized by checking if it has loaded property
-        if (Clerk.loaded !== undefined) {
-            console.log('🔵 Clerk.loaded:', Clerk.loaded);
-            break;
+    // Check if Clerk is already loaded (might auto-initialize from script tag)
+    if (Clerk.loaded) {
+        console.log('✅ Clerk already initialized');
+    } else {
+        console.log('🔵 Calling Clerk.load() with explicit publishable key...');
+
+        // Try calling load with the publishable key explicitly
+        try {
+            await Clerk.load({
+                publishableKey: clerkPublishableKey
+            });
+            console.log('✅ Clerk.load() completed');
+        } catch (loadError) {
+            console.error('❌ Clerk.load() failed:', loadError);
+            throw loadError;
         }
-        await new Promise(resolve => setTimeout(resolve, 100));
-        initAttempts++;
-    }
-
-    if (initAttempts >= 100) {
-        throw new Error('Clerk did not initialize after 10 seconds');
     }
 
     console.log('✅ Clerk initialized successfully');
+    console.log('🔵 Clerk.loaded:', Clerk.loaded);
     console.log('🔵 Clerk.user:', Clerk.user);
 
     // Remove loading screen
@@ -115,7 +117,7 @@ async function initializeClerk() {
                             card: 'shadow-none border-0'
                         }
                     },
-                    afterSignUpUrl: '/',
+                    fallbackRedirectUrl: '/',
                     signInUrl: '#sign-in'
                 });
                 console.log('✅ Sign-up component mounted');
@@ -129,7 +131,7 @@ async function initializeClerk() {
                             card: 'shadow-none border-0'
                         }
                     },
-                    afterSignInUrl: '/',
+                    fallbackRedirectUrl: '/',
                     signUpUrl: '#sign-up'
                 });
                 console.log('✅ Sign-in component mounted');
@@ -156,7 +158,7 @@ async function initializeClerk() {
                             card: 'shadow-none border-0'
                         }
                     },
-                    afterSignUpUrl: '/',
+                    fallbackRedirectUrl: '/',
                     signInUrl: '#sign-in'
                 });
             } else {
@@ -167,7 +169,7 @@ async function initializeClerk() {
                             card: 'shadow-none border-0'
                         }
                     },
-                    afterSignInUrl: '/',
+                    fallbackRedirectUrl: '/',
                     signUpUrl: '#sign-up'
                 });
             }

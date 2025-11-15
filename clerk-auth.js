@@ -17,6 +17,9 @@ window.addEventListener('load', async () => {
 
         console.log('✅ Clerk loaded successfully');
 
+        // Remove loading screen
+        document.getElementById('clerk-loading')?.remove();
+
         // Check if user is signed in
         if (Clerk.user) {
             console.log('✅ User is signed in:', Clerk.user.primaryEmailAddress?.emailAddress);
@@ -83,23 +86,34 @@ window.addEventListener('load', async () => {
         // Setup logout button
         setupLogoutButton();
 
+        // Track initial state to prevent reload loop
+        let initialAuthState = Clerk.user ? 'authenticated' : 'unauthenticated';
+        let hasReloaded = sessionStorage.getItem('clerk_just_signed_in') === 'true';
+
+        // Clear the reload flag if we're already authenticated
+        if (initialAuthState === 'authenticated' && hasReloaded) {
+            sessionStorage.removeItem('clerk_just_signed_in');
+        }
+
         // Listen for Clerk auth changes
         Clerk.addListener((state) => {
-            if (state.user) {
-                console.log('User signed in:', state.user.primaryEmailAddress?.emailAddress);
-                updateUserInfo(state.user);
+            const currentState = state.user ? 'authenticated' : 'unauthenticated';
 
-                // Show main content
-                document.querySelector('.container')?.style.removeProperty('display');
+            // Only act on actual state changes
+            if (currentState !== initialAuthState) {
+                if (state.user && !hasReloaded) {
+                    // User just signed in
+                    console.log('User signed in:', state.user.primaryEmailAddress?.emailAddress);
+                    sessionStorage.setItem('clerk_just_signed_in', 'true');
+                    window.location.reload();
+                } else if (!state.user) {
+                    // User signed out
+                    console.log('User signed out');
+                    sessionStorage.removeItem('clerk_just_signed_in');
+                    window.location.href = '/';
+                }
 
-                // Remove landing page if it exists
-                document.getElementById('landing-page')?.remove();
-
-                // Reload to initialize app
-                window.location.reload();
-            } else {
-                console.log('User signed out');
-                window.location.href = '/';
+                initialAuthState = currentState;
             }
         });
 

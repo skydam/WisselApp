@@ -59,24 +59,73 @@ window.addEventListener('load', async () => {
                         <h1 style="font-size: 32px; font-weight: 700; color: #1a1a1a; margin: 0 0 12px 0;">🏒 Hockey Team Manager</h1>
                         <p style="font-size: 16px; color: #666; margin: 0;">Manage your team, generate fair rotations, and track playing time</p>
                     </div>
-                    <div id="clerk-sign-in-container"></div>
-                    <div style="margin-top: 24px; font-size: 14px; color: #999;">
-                        <p style="margin: 0;">Don't have an account? Click "Sign up" below</p>
-                    </div>
+                    <div id="clerk-auth-container"></div>
                 </div>
             `;
 
             document.body.appendChild(landingPage);
 
-            // Mount Clerk sign-in component in the landing page
-            Clerk.mountSignIn(document.getElementById('clerk-sign-in-container'), {
-                appearance: {
-                    elements: {
-                        rootBox: 'w-full',
-                        card: 'shadow-none border-0'
-                    }
-                },
-                afterSignInUrl: '/'
+            // Check URL hash to determine which form to show
+            const showSignUp = window.location.hash === '#sign-up';
+
+            if (showSignUp) {
+                // Mount sign-up component
+                Clerk.mountSignUp(document.getElementById('clerk-auth-container'), {
+                    appearance: {
+                        elements: {
+                            rootBox: 'w-full',
+                            card: 'shadow-none border-0'
+                        }
+                    },
+                    afterSignUpUrl: '/',
+                    signInUrl: '#sign-in'
+                });
+            } else {
+                // Mount sign-in component
+                Clerk.mountSignIn(document.getElementById('clerk-auth-container'), {
+                    appearance: {
+                        elements: {
+                            rootBox: 'w-full',
+                            card: 'shadow-none border-0'
+                        }
+                    },
+                    afterSignInUrl: '/',
+                    signUpUrl: '#sign-up'
+                });
+            }
+
+            // Listen for hash changes to switch between sign-in and sign-up
+            window.addEventListener('hashchange', () => {
+                const container = document.getElementById('clerk-auth-container');
+                if (!container) return;
+
+                // Clear the container
+                container.innerHTML = '';
+
+                // Mount the appropriate component based on hash
+                if (window.location.hash === '#sign-up') {
+                    Clerk.mountSignUp(container, {
+                        appearance: {
+                            elements: {
+                                rootBox: 'w-full',
+                                card: 'shadow-none border-0'
+                            }
+                        },
+                        afterSignUpUrl: '/',
+                        signInUrl: '#sign-in'
+                    });
+                } else {
+                    Clerk.mountSignIn(container, {
+                        appearance: {
+                            elements: {
+                                rootBox: 'w-full',
+                                card: 'shadow-none border-0'
+                            }
+                        },
+                        afterSignInUrl: '/',
+                        signUpUrl: '#sign-up'
+                    });
+                }
             });
 
             // Keep main content hidden

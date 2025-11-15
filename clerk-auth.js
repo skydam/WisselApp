@@ -21,19 +21,26 @@ async function initializeClerk() {
     }
 
     console.log('✅ Clerk object found');
-    console.log('🔵 Calling Clerk.load()...');
+    console.log('🔵 Waiting for Clerk to initialize...');
 
-    // Since publishableKey is already in the script tag's data-clerk-publishable-key,
-    // we don't need to pass it again. Just call load() to wait for initialization.
-    const loadPromise = Clerk.load();
+    // Since the script tag has data-clerk-publishable-key, Clerk auto-initializes.
+    // Instead of calling Clerk.load(), wait for Clerk to be ready by polling its state
+    let initAttempts = 0;
+    while (initAttempts < 100) {
+        // Check if Clerk has initialized by checking if it has loaded property
+        if (Clerk.loaded !== undefined) {
+            console.log('🔵 Clerk.loaded:', Clerk.loaded);
+            break;
+        }
+        await new Promise(resolve => setTimeout(resolve, 100));
+        initAttempts++;
+    }
 
-    const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Clerk.load() timed out after 10 seconds')), 10000)
-    );
+    if (initAttempts >= 100) {
+        throw new Error('Clerk did not initialize after 10 seconds');
+    }
 
-    await Promise.race([loadPromise, timeoutPromise]);
-
-    console.log('✅ Clerk loaded successfully');
+    console.log('✅ Clerk initialized successfully');
     console.log('🔵 Clerk.user:', Clerk.user);
 
     // Remove loading screen

@@ -21,6 +21,9 @@ window.addEventListener('load', async () => {
         if (Clerk.user) {
             console.log('✅ User is signed in:', Clerk.user.primaryEmailAddress?.emailAddress);
 
+            // Show main content
+            document.querySelector('.container')?.style.setProperty('display', 'block');
+
             // Update UI with user info
             updateUserInfo(Clerk.user);
 
@@ -54,8 +57,7 @@ window.addEventListener('load', async () => {
                         card: 'shadow-lg'
                     }
                 },
-                afterSignInUrl: '/',
-                signUpUrl: undefined // Disable signup if you want restricted access
+                afterSignInUrl: '/'
             });
 
             // Hide main content while not authenticated

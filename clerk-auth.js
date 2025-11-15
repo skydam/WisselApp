@@ -8,7 +8,7 @@
 // Wait for Clerk to be ready
 window.addEventListener('load', async () => {
     // Initialize Clerk
-    const clerkPublishableKey = 'CLERK_PUBLISHABLE_KEY_PLACEHOLDER';
+    const clerkPublishableKey = 'pk_test_ZW5nYWdlZC10ZXJyYXBpbi0xNi5jbGVyay5hY2NvdW50cy5kZXYk';
 
     try {
         await Clerk.load({

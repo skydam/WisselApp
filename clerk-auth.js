@@ -108,17 +108,15 @@ async function initializeClerk() {
 
         try {
             console.log('🔵 Mounting sign-in component...');
-            // Mount sign-in component with routing="path" instead of hash
+            // Mount sign-in component using default Clerk behavior (no routing option)
+            // Per Clerk docs: "virtual" routing is deprecated and internal-only
             Clerk.mountSignIn(authContainer, {
                 appearance: {
                     elements: {
                         rootBox: 'w-full',
                         card: 'shadow-none border-0'
                     }
-                },
-                routing: 'virtual',
-                fallbackRedirectUrl: '/',
-                signUpFallbackRedirectUrl: '/'
+                }
             });
             console.log('✅ Sign-in component mounted');
         } catch (mountError) {

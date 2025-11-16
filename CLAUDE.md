@@ -288,6 +288,114 @@ NODE_ENV=production
 - [ ] Data persists to database
 - [ ] Game schedule generation works
 
+### Clerk Authentication Troubleshooting (November 16, 2025)
+
+#### Issues Encountered & Fixes Applied
+
+**Issue 1: Clerk.load() Hanging (FIXED)**
+- **Error**: Promise never resolved, stuck on "Calling Clerk.load()..."
+- **Cause**: Script tag has `async` attribute, Clerk object not immediately available
+- **Fix**: Added polling loop to wait for `window.Clerk` to exist before calling load()
+- **Commit**: 022d555
+
+**Issue 2: Missing clerkPublishableKey Variable (FIXED)**
+- **Error**: "Can't find variable: clerkPublishableKey" on Railway
+- **Cause**: Variable declaration removed during refactoring
+- **Fix**: Re-added `const clerkPublishableKey = 'pk_test_...'` at start of initializeClerk()
+- **Commit**: c7bc458
+
+**Issue 3: Allowed Origins Not Configured (FIXED)**
+- **Error**: Clerk loaded but API calls failed due to CORS
+- **Fix**: Updated Clerk instance via API to allow Railway URL
+- **Command**: `curl -X PATCH https://api.clerk.com/v1/instance` with allowed_origins
+- **Status**: HTTP 204 - Successfully updated
+
+**Issue 4: Hash-Based Routing Incompatibility (ATTEMPTED FIX)**
+- **Error**: "NotFoundError: The object can not be found here" in Clerk framework code
+- **Cause**: Using hash-based navigation (`#sign-up`, `#sign-in`) with `Clerk.mountSignIn()`
+- **Investigation**: Compared with working IR document analyzer implementation
+- **Fix Attempted**:
+  - Removed hash-based routing
+  - Added `routing: 'virtual'` (matching IR analyzer pattern)
+  - Removed hashchange listeners
+  - Let Clerk handle navigation internally
+- **Commit**: 47feffa
+- **Status**: ⚠️ STILL NOT WORKING (as of Nov 16, 2025)
+
+#### Current Implementation
+
+**Frontend (index.html)**:
+```html
+<script async crossorigin="anonymous"
+  data-clerk-publishable-key="pk_test_ZW5nYWdlZC10ZXJyYXBpbi0xNi5jbGVyay5hY2NvdW50cy5kZXYk"
+  src="https://engaged-terrapin-16.clerk.accounts.dev/npm/@clerk/clerk-js@5/dist/clerk.browser.js"
+></script>
+<script src="clerk-auth.js"></script>
+```
+
+**clerk-auth.js**:
+- Polls for `window.Clerk` existence (max 10 seconds)
+- Checks if `Clerk.loaded` before calling `Clerk.load()`
+- Calls `Clerk.load()` with explicit publishableKey
+- Uses `routing: 'virtual'` for mountSignIn
+- Auto-reload on successful sign-in with sessionStorage flag
+
+**Backend (server.js)**:
+- Uses Clerk backend SDK for token verification
+- Automatic database migration from old schema
+- Clerk user ID stored instead of password hashes
+
+#### Working Reference Implementation
+
+**IR Document Analyzer** (successful Clerk integration):
+- Uses **React** with `@clerk/clerk-react`
+- Uses `<ClerkProvider>`, `<SignIn />`, `<SignUp />` **components**
+- Uses `routing="virtual"` in SignIn component
+- No manual mounting or hash routing
+- **Key difference**: React components vs vanilla JavaScript SDK
+
+#### Debugging Logs (Still Failing)
+
+```
+✅ Clerk object found
+✅ Clerk.load() completed
+✅ Clerk initialized successfully
+✅ Sign-in component mounted
+❌ NotFoundError: The object can not be found here
+   at framework_clerk.browser_c3e11c_5.108.0.js
+```
+
+#### Outstanding Issues
+
+1. **NotFoundError persists** despite applying IR analyzer pattern
+2. Possible causes:
+   - Vanilla JavaScript SDK vs React SDK behavioral differences
+   - Development instance configuration in Clerk dashboard
+   - Missing Clerk application settings
+   - SDK version incompatibility (@5 vs @latest)
+   - Virtual routing not fully supported in mountSignIn()
+
+#### Next Steps to Try
+
+- [ ] Check Clerk dashboard application settings
+- [ ] Try different routing modes ('path' vs 'virtual' vs 'hash')
+- [ ] Test with React instead of vanilla JavaScript
+- [ ] Check Clerk SDK version compatibility
+- [ ] Review Clerk dashboard paths/domains configuration
+- [ ] Contact Clerk support for mountSignIn() virtual routing support
+
+#### Railway Deployment URLs
+
+- **Production**: https://wisselapp-production-cac6.up.railway.app/
+- **Local**: http://localhost:3000
+- **Clerk Dashboard**: https://dashboard.clerk.com → engaged-terrapin-16
+
+#### Clerk API Keys
+
+- **Publishable Key** (client-safe): `pk_test_ZW5nYWdlZC10ZXJyYXBpbi0xNi5jbGVyay5hY2NvdW50cy5kZXYk`
+- **Secret Key** (server-only): Stored in Railway environment variables
+- **Frontend API**: `engaged-terrapin-16.clerk.accounts.dev`
+
 ---
-**Last Updated**: November 15, 2025 (Railway deployment prep)
-**Status**: Ready for Railway Deployment ✅ (Clerk auth configured, Node 20.x, railway.json created)
+**Last Updated**: November 16, 2025
+**Status**: ⚠️ Clerk Authentication Not Working (NotFoundError persists despite fixes)

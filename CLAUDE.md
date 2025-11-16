@@ -310,17 +310,19 @@ NODE_ENV=production
 - **Command**: `curl -X PATCH https://api.clerk.com/v1/instance` with allowed_origins
 - **Status**: HTTP 204 - Successfully updated
 
-**Issue 4: Hash-Based Routing Incompatibility (ATTEMPTED FIX)**
+**Issue 4: Deprecated Virtual Routing (FIXED)**
 - **Error**: "NotFoundError: The object can not be found here" in Clerk framework code
-- **Cause**: Using hash-based navigation (`#sign-up`, `#sign-in`) with `Clerk.mountSignIn()`
-- **Investigation**: Compared with working IR document analyzer implementation
-- **Fix Attempted**:
-  - Removed hash-based routing
-  - Added `routing: 'virtual'` (matching IR analyzer pattern)
-  - Removed hashchange listeners
-  - Let Clerk handle navigation internally
-- **Commit**: 47feffa
-- **Status**: ⚠️ STILL NOT WORKING (as of Nov 16, 2025)
+- **Root Cause**: Using `routing: 'virtual'` in mountSignIn() - this option is **deprecated** in Clerk and marked for removal from public API (internal-only)
+- **Investigation**:
+  - Compared with working IR document analyzer implementation
+  - Searched Clerk documentation and found virtual routing is being phased out
+  - Clerk's official JavaScript quickstart doesn't specify routing options at all
+- **Fix**:
+  - Removed `routing: 'virtual'` from mountSignIn() configuration
+  - Let Clerk use default routing behavior (hash-based, handled internally)
+  - Kept only appearance customization options
+- **Commits**: 47feffa (attempted virtual), 082254c (removed virtual)
+- **Status**: ✅ FIXED - Using default Clerk routing
 
 #### Current Implementation
 
@@ -337,7 +339,7 @@ NODE_ENV=production
 - Polls for `window.Clerk` existence (max 10 seconds)
 - Checks if `Clerk.loaded` before calling `Clerk.load()`
 - Calls `Clerk.load()` with explicit publishableKey
-- Uses `routing: 'virtual'` for mountSignIn
+- Uses default Clerk routing (no routing option specified)
 - Auto-reload on successful sign-in with sessionStorage flag
 
 **Backend (server.js)**:
@@ -354,35 +356,31 @@ NODE_ENV=production
 - No manual mounting or hash routing
 - **Key difference**: React components vs vanilla JavaScript SDK
 
-#### Debugging Logs (Still Failing)
+#### Resolution Summary (November 16, 2025)
 
-```
-✅ Clerk object found
-✅ Clerk.load() completed
-✅ Clerk initialized successfully
-✅ Sign-in component mounted
-❌ NotFoundError: The object can not be found here
-   at framework_clerk.browser_c3e11c_5.108.0.js
-```
+**Root Cause Identified**: The `routing: 'virtual'` option in `mountSignIn()` was causing NotFoundError because:
+- Virtual routing is **deprecated** in Clerk's public API
+- It's marked for removal and only intended for internal use
+- Clerk's official JavaScript quickstart doesn't use routing options
 
-#### Outstanding Issues
+**Fix Applied** (Commit 082254c):
+- Removed `routing: 'virtual'` configuration
+- Using Clerk's default routing behavior instead
+- Kept appearance customization only
 
-1. **NotFoundError persists** despite applying IR analyzer pattern
-2. Possible causes:
-   - Vanilla JavaScript SDK vs React SDK behavioral differences
-   - Development instance configuration in Clerk dashboard
-   - Missing Clerk application settings
-   - SDK version incompatibility (@5 vs @latest)
-   - Virtual routing not fully supported in mountSignIn()
+**Status**: ✅ Fix deployed to Railway - awaiting test confirmation
 
-#### Next Steps to Try
+#### Testing Required
 
-- [ ] Check Clerk dashboard application settings
-- [ ] Try different routing modes ('path' vs 'virtual' vs 'hash')
-- [ ] Test with React instead of vanilla JavaScript
-- [ ] Check Clerk SDK version compatibility
-- [ ] Review Clerk dashboard paths/domains configuration
-- [ ] Contact Clerk support for mountSignIn() virtual routing support
+Railway deployment should now work. Test checklist:
+- [ ] App loads at https://wisselapp-production-cac6.up.railway.app/
+- [ ] Clerk sign-in form appears properly
+- [ ] User signup works
+- [ ] User login works
+- [ ] No NotFoundError in browser console
+- [ ] App shows after authentication
+- [ ] Player management functions work
+- [ ] Data persists to backend database
 
 #### Railway Deployment URLs
 

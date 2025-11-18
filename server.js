@@ -17,7 +17,7 @@ const ALLOWED_EMAILS = [
 // Initialize SQLite database
 const db = new Database('wisselapp.db');
 
-// Create tables
+// Create tables with proper constraints
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -28,12 +28,45 @@ db.exec(`
 
   CREATE TABLE IF NOT EXISTS team_data (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL UNIQUE,
     data TEXT NOT NULL,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id)
   );
 `);
+
+// Migration: Add UNIQUE constraint to existing team_data table if needed
+try {
+  const tableInfo = db.prepare("PRAGMA table_info(team_data)").all();
+  const hasUniqueConstraint = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='team_data'").get();
+
+  if (hasUniqueConstraint && !hasUniqueConstraint.sql.includes('UNIQUE')) {
+    console.log('⚠️  Migrating team_data table to add UNIQUE constraint...');
+
+    // Create new table with UNIQUE constraint
+    db.exec(`
+      CREATE TABLE team_data_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL UNIQUE,
+        data TEXT NOT NULL,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id)
+      );
+
+      INSERT INTO team_data_new (id, user_id, data, updated_at)
+      SELECT id, user_id, data, updated_at FROM team_data
+      GROUP BY user_id
+      HAVING id = MAX(id);
+
+      DROP TABLE team_data;
+      ALTER TABLE team_data_new RENAME TO team_data;
+    `);
+
+    console.log('✅ Migration complete - UNIQUE constraint added');
+  }
+} catch (migrationError) {
+  console.log('⚠️  Migration skipped or failed:', migrationError.message);
+}
 
 // Middleware
 app.use(bodyParser.json());
@@ -112,17 +145,21 @@ app.post('/api/login', async (req, res) => {
     const user = stmt.get(email.toLowerCase());
 
     if (!user) {
+      console.log(`🔒 [LOGIN] Failed - user not found: ${email}`);
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) {
+      console.log(`🔒 [LOGIN] Failed - invalid password for: ${email}`);
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
     req.session.userId = user.id;
+    console.log(`✅ [LOGIN] Success - User ${user.id} (${email}) logged in`);
     res.json({ success: true, message: 'Login successful' });
   } catch (error) {
+    console.error(`❌ [LOGIN] Error:`, error);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -208,45 +245,53 @@ app.get('/api/auth/status', (req, res) => {
 // Save team data
 app.post('/api/team/save', requireAuth, (req, res) => {
   const { data } = req.body;
+  const userId = req.session.userId;
+
+  console.log(`💾 [SAVE] User ${userId} saving team data with ${data?.players?.length || 0} players`);
 
   try {
-    const stmt = db.prepare(`
-      INSERT INTO team_data (user_id, data, updated_at)
-      VALUES (?, ?, CURRENT_TIMESTAMP)
-      ON CONFLICT(user_id) DO UPDATE SET data = ?, updated_at = CURRENT_TIMESTAMP
-    `);
-
-    // SQLite doesn't support ON CONFLICT with user_id directly, so we check first
-    const existing = db.prepare('SELECT id FROM team_data WHERE user_id = ?').get(req.session.userId);
+    // Check if data exists for this user
+    const existing = db.prepare('SELECT id FROM team_data WHERE user_id = ?').get(userId);
 
     if (existing) {
+      console.log(`  └─ Updating existing data for user ${userId}`);
       db.prepare('UPDATE team_data SET data = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?')
-        .run(JSON.stringify(data), req.session.userId);
+        .run(JSON.stringify(data), userId);
     } else {
+      console.log(`  └─ Inserting new data for user ${userId}`);
       db.prepare('INSERT INTO team_data (user_id, data) VALUES (?, ?)')
-        .run(req.session.userId, JSON.stringify(data));
+        .run(userId, JSON.stringify(data));
     }
 
+    console.log(`✅ [SAVE] Data saved successfully for user ${userId}`);
     res.json({ success: true, message: 'Team data saved' });
   } catch (error) {
-    console.error(error);
+    console.error(`❌ [SAVE] Error for user ${userId}:`, error);
     res.status(500).json({ error: 'Failed to save team data' });
   }
 });
 
 // Load team data
 app.get('/api/team/load', requireAuth, (req, res) => {
+  const userId = req.session.userId;
+
+  console.log(`📂 [LOAD] User ${userId} loading team data`);
+
   try {
     const stmt = db.prepare('SELECT data FROM team_data WHERE user_id = ?');
-    const result = stmt.get(req.session.userId);
+    const result = stmt.get(userId);
 
     if (result) {
-      res.json({ success: true, data: JSON.parse(result.data) });
+      const parsedData = JSON.parse(result.data);
+      const playerCount = parsedData?.players?.length || 0;
+      console.log(`✅ [LOAD] Found data for user ${userId} with ${playerCount} players`);
+      res.json({ success: true, data: parsedData });
     } else {
+      console.log(`📭 [LOAD] No data found for user ${userId} (empty/new account)`);
       res.json({ success: true, data: null });
     }
   } catch (error) {
-    console.error(error);
+    console.error(`❌ [LOAD] Error for user ${userId}:`, error);
     res.status(500).json({ error: 'Failed to load team data' });
   }
 });

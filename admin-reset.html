@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Password Reset - WisselApp</title>
+    <link rel="stylesheet" href="styles_shadcn.css">
+    <style>
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        .reset-container {
+            width: 100%;
+            max-width: 500px;
+            padding: 2rem;
+        }
+
+        .reset-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: calc(var(--radius) + 0.25rem);
+            padding: 3rem;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .reset-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .reset-header h1 {
+            font-family: var(--font-display);
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .reset-header p {
+            color: var(--muted-foreground);
+            font-size: 0.9375rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.75rem;
+            font-weight: 500;
+            font-size: 0.9375rem;
+            color: var(--foreground);
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 0.875rem 1.25rem;
+            border: 1px solid var(--input);
+            border-radius: var(--radius);
+            font-size: 0.9375rem;
+            font-family: var(--font-sans);
+            background: var(--background);
+            color: var(--foreground);
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px oklch(from var(--primary) l c h / 0.1);
+        }
+
+        .btn-reset {
+            width: 100%;
+            padding: 1rem 1.75rem;
+            background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+            color: var(--primary-foreground);
+            border: none;
+            border-radius: var(--radius);
+            font-size: 0.9375rem;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: var(--font-sans);
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            box-shadow: var(--shadow-md);
+        }
+
+        .btn-reset:hover {
+            box-shadow: var(--shadow-lg);
+            transform: translateY(-2px);
+        }
+
+        .btn-reset:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .message {
+            padding: 1rem 1.25rem;
+            border-radius: var(--radius);
+            margin-bottom: 1.5rem;
+            font-size: 0.9375rem;
+            display: none;
+        }
+
+        .error-message {
+            background: oklch(from var(--destructive) l c h / 0.1);
+            color: var(--destructive);
+            border: 1px solid oklch(from var(--destructive) l c h / 0.3);
+        }
+
+        .success-message {
+            background: oklch(from var(--success) l c h / 0.1);
+            color: var(--success);
+            border: 1px solid oklch(from var(--success) l c h / 0.3);
+        }
+
+        .back-link {
+            text-align: center;
+            margin-top: 2rem;
+        }
+
+        .back-link a {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.9375rem;
+        }
+
+        .back-link a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="reset-container">
+        <div class="reset-card">
+            <div class="reset-header">
+                <h1>Admin Password Reset</h1>
+                <p>Reset your password if you've been locked out</p>
+            </div>
+
+            <div id="error-message" class="message error-message"></div>
+            <div id="success-message" class="message success-message"></div>
+
+            <form id="reset-form">
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <input type="email" id="email" name="email" required value="jvharten@gmail.com" autocomplete="email">
+                </div>
+
+                <div class="form-group">
+                    <label for="newPassword">New Password</label>
+                    <input type="password" id="newPassword" name="newPassword" required minlength="6" autocomplete="new-password">
+                </div>
+
+                <div class="form-group">
+                    <label for="confirmPassword">Confirm New Password</label>
+                    <input type="password" id="confirmPassword" name="confirmPassword" required minlength="6" autocomplete="new-password">
+                </div>
+
+                <div class="form-group">
+                    <label for="adminSecret">Admin Secret</label>
+                    <input type="password" id="adminSecret" name="adminSecret" required placeholder="Enter admin secret">
+                    <small style="color: var(--muted-foreground); font-size: 0.8125rem; display: block; margin-top: 0.5rem;">
+                        Default: "reset-my-password-please"
+                    </small>
+                </div>
+
+                <button type="submit" class="btn-reset" id="submit-btn">Reset Password</button>
+            </form>
+
+            <div class="back-link">
+                <a href="/login.html">← Back to Login</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('reset-form');
+        const submitBtn = document.getElementById('submit-btn');
+        const errorMessage = document.getElementById('error-message');
+        const successMessage = document.getElementById('success-message');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hideMessages();
+
+            const email = document.getElementById('email').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            const adminSecret = document.getElementById('adminSecret').value;
+
+            // Validate passwords match
+            if (newPassword !== confirmPassword) {
+                showError('Passwords do not match');
+                return;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Resetting password...';
+
+            try {
+                const response = await fetch('/api/admin/reset-password', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, newPassword, adminSecret })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showSuccess(data.message + ' Redirecting to login...');
+                    setTimeout(() => {
+                        window.location.href = '/login.html';
+                    }, 2000);
+                } else {
+                    showError(data.error);
+                }
+            } catch (error) {
+                showError('Connection error. Please try again.');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Reset Password';
+            }
+        });
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+        }
+
+        function showSuccess(message) {
+            successMessage.textContent = message;
+            successMessage.style.display = 'block';
+        }
+
+        function hideMessages() {
+            errorMessage.style.display = 'none';
+            successMessage.style.display = 'none';
+        }
+    </script>
+</body>
+</html>

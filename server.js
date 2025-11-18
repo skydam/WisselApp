@@ -138,6 +138,40 @@ app.post('/api/logout', (req, res) => {
   });
 });
 
+// Admin password reset endpoint (for emergencies)
+app.post('/api/admin/reset-password', async (req, res) => {
+  const { email, newPassword, adminSecret } = req.body;
+
+  // Simple secret check
+  const ADMIN_SECRET = process.env.ADMIN_SECRET || 'reset-my-password-please';
+
+  if (adminSecret !== ADMIN_SECRET) {
+    return res.status(403).json({ error: 'Invalid admin secret' });
+  }
+
+  if (!email || !newPassword) {
+    return res.status(400).json({ error: 'Email and new password required' });
+  }
+
+  if (newPassword.length < 6) {
+    return res.status(400).json({ error: 'Password must be at least 6 characters' });
+  }
+
+  try {
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    const stmt = db.prepare('UPDATE users SET password = ? WHERE email = ?');
+    const result = stmt.run(hashedPassword, email.toLowerCase());
+
+    if (result.changes === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({ success: true, message: 'Password reset successful' });
+  } catch (error) {
+    res.status(500).json({ error: 'Server error: ' + error.message });
+  }
+});
+
 // Check auth status
 app.get('/api/auth/status', (req, res) => {
   if (req.session.userId) {

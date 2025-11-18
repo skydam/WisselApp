@@ -47,7 +47,7 @@ const storage = {
 
             let players = [];
 
-            // Try to load from backend API if available
+            // Try to load from backend API if user is authenticated
             if (window.useBackendStorage) {
                 try {
                     const response = await fetch('/api/team/load', {
@@ -57,21 +57,25 @@ const storage = {
                     if (response.ok) {
                         const result = await response.json();
                         players = result.data?.players || [];
-                        console.log(`📦 Loaded ${players.length} players from server`);
+                        console.log(`📦 Loaded ${players.length} players from SERVER (user-specific)`);
 
-                        // If server has data, return it
-                        if (players.length > 0) {
-                            return players;
-                        }
+                        // IMPORTANT: When using backend storage, ALWAYS return server data
+                        // Even if empty - don't fall back to localStorage (which has other users' data)
+                        return players;
+                    } else if (response.status === 401) {
+                        console.warn('⚠️ Not authenticated - redirecting to login');
+                        window.location.href = '/login.html';
+                        return [];
                     }
                 } catch (backendError) {
-                    console.warn('⚠️ Backend unavailable, trying localStorage:', backendError);
+                    console.warn('⚠️ Backend unavailable, using localStorage:', backendError);
+                    // Only fall back to localStorage if backend is completely unavailable (network error)
                 }
             }
 
-            // Fallback to localStorage (or if backend was empty)
+            // Only use localStorage if backend storage is disabled (local development)
             players = await database.load('players');
-            console.log(`📦 Loaded ${players.length} players from localStorage`);
+            console.log(`📦 Loaded ${players.length} players from localStorage (offline mode)`);
             return players || [];
         } catch (error) {
             console.error('❌ Storage load failed:', error);

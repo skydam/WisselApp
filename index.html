@@ -154,16 +154,47 @@
         </section>
     </div>
 
-    <!-- Simple Logout Handler -->
+    <!-- Authentication Check and Backend Storage Setup -->
     <script>
+        // Check authentication status and enable backend storage
+        async function checkAuth() {
+            try {
+                const response = await fetch('/api/auth/status', {
+                    credentials: 'same-origin'
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.authenticated) {
+                        console.log('✅ User authenticated, enabling backend storage');
+                        window.useBackendStorage = true;
+                        return true;
+                    }
+                }
+
+                // Not authenticated, redirect to login
+                console.log('❌ Not authenticated, redirecting to login');
+                window.location.href = '/login.html';
+                return false;
+            } catch (error) {
+                console.error('Auth check failed:', error);
+                // On error, assume not authenticated
+                window.location.href = '/login.html';
+                return false;
+            }
+        }
+
+        // Run auth check immediately
+        checkAuth();
+
         // Handle logout button
         document.getElementById('logout-btn')?.addEventListener('click', async () => {
             try {
                 await fetch('/api/logout', { method: 'POST' });
-                window.location.href = '/';
+                window.location.href = '/login.html';
             } catch (error) {
                 console.error('Logout failed:', error);
-                window.location.href = '/';
+                window.location.href = '/login.html';
             }
         });
     </script>

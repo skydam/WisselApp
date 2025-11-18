@@ -73,10 +73,11 @@ app.post('/api/signup', async (req, res) => {
     return res.status(400).json({ error: 'Email and password required' });
   }
 
-  // Check if email is whitelisted
-  if (!ALLOWED_EMAILS.includes(email.toLowerCase())) {
-    return res.status(403).json({ error: 'This email is not authorized to create an account. Contact the administrator for access.' });
-  }
+  // Email whitelist disabled - anyone can sign up
+  // If you want to re-enable whitelist, uncomment below:
+  // if (!ALLOWED_EMAILS.includes(email.toLowerCase())) {
+  //   return res.status(403).json({ error: 'This email is not authorized to create an account.' });
+  // }
 
   if (password.length < 6) {
     return res.status(400).json({ error: 'Password must be at least 6 characters' });

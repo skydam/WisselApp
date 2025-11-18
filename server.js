@@ -55,9 +55,6 @@ app.use(session({
   }
 }));
 
-// Serve static files
-app.use(express.static('.'));
-
 // Auth middleware
 function requireAuth(req, res, next) {
   if (!req.session.userId) {
@@ -131,8 +128,14 @@ app.post('/api/login', async (req, res) => {
 
 // Logout
 app.post('/api/logout', (req, res) => {
-  req.session.destroy();
-  res.json({ success: true, message: 'Logged out successfully' });
+  req.session.destroy((err) => {
+    if (err) {
+      console.error('Session destroy error:', err);
+      return res.status(500).json({ error: 'Logout failed' });
+    }
+    res.clearCookie('connect.sid');
+    res.json({ success: true, message: 'Logged out successfully' });
+  });
 });
 
 // Check auth status
@@ -267,6 +270,9 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'login.html'));
   }
 });
+
+// Serve static files AFTER auth routes so auth check happens first
+app.use(express.static('.'));
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

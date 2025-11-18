@@ -395,5 +395,106 @@ Railway deployment should now work. Test checklist:
 - **Frontend API**: `engaged-terrapin-16.clerk.accounts.dev`
 
 ---
-**Last Updated**: November 16, 2025
-**Status**: ⚠️ Clerk Authentication Not Working (NotFoundError persists despite fixes)
+
+## CRITICAL UPDATE: November 18, 2025 - User Data Isolation Fix
+
+### Authentication System Change
+**Reverted from Clerk to Custom Auth** (November 18, 2025)
+- Clerk authentication had persistent issues (NotFoundError, virtual routing deprecated)
+- Reverted to custom email/password authentication with bcrypt
+- Backend: `server.js` (custom auth)
+- Clerk version backed up as: `server-clerk-backup.js`
+- Email whitelist: DISABLED (anyone can sign up)
+
+### New Features Implemented
+
+#### 1. Minimal Luxury UI Redesign
+- Complete visual overhaul with "Elite Coaching Suite" aesthetic
+- **Typography**: Playfair Display (headings), Inter (body), JetBrains Mono (code)
+- **Colors**: Warm ivory background, deep charcoal text, sophisticated bronze-gold accents
+- **Shadows**: Multi-layer shadow system for depth
+- **Animations**: Staggered fade-in animations with elegant transitions
+- **File**: `styles_shadcn.css` (completely rewritten, 1420 lines)
+
+#### 2. Interactive Player Position Swapping
+- Click two players in same formation moment to swap their positions
+- Visual feedback: Selected players highlighted with gold gradient
+- Swap persists through all subsequent formations
+- Smart logic: Only swaps when both players are on field together
+- **Files Modified**:
+  - `app_new.js`: UI selection logic and click handlers
+  - `rotation-engine_new.js`: `swapPlayerPositions()` method
+- **Commits**: dc2b615 (initial), a719ae3 (fix click handler), ac7247b (fix swap logic)
+
+#### 3. Admin Password Reset System
+- Emergency password reset page for locked-out users
+- Admin secret authentication (default: "reset-my-password-please")
+- **File Created**: `admin-reset.html`
+- **Endpoints Added**: `/api/admin/reset-password`, `/api/admin/debug-users`
+- **Commits**: 85249cc, e264e46
+
+### CRITICAL BUG FIXED: User Data Isolation
+
+**Problem**: Different users were seeing the same team data
+- Deleting players in one account deleted them in all accounts
+- Root cause: `window.useBackendStorage` was never set to `true`
+- All users were unknowingly sharing browser localStorage
+
+**Solution** (Commit d92f1c8 - READY BUT NOT PUSHED):
+1. **Authentication Check** (`index.html`):
+   - Added `checkAuth()` function that runs on page load
+   - Sets `window.useBackendStorage = true` when authenticated
+   - Redirects to login if not authenticated
+
+2. **Storage Priority** (`storage_new.js`):
+   - ALWAYS returns server data when `useBackendStorage` is true
+   - Never falls back to localStorage for authenticated users
+   - Only uses localStorage in offline/development mode
+
+3. **Database Schema** (`server.js`):
+   - Added UNIQUE constraint on `team_data.user_id`
+   - Automatic migration code for existing databases
+   - Prevents duplicate data rows per user
+
+4. **Extensive Debugging** (`server.js`):
+   - `[LOGIN]` logs: Which user ID logs in
+   - `[SAVE]` logs: Which user saves data and player count
+   - `[LOAD]` logs: Which user loads data and what they receive
+   - Helps diagnose data sharing issues via Railway logs
+
+**Files Modified in d92f1c8**:
+- `server.js`: Database schema, migration, debugging logs
+- `index.html`: Authentication check and `useBackendStorage` setup
+- `storage_new.js`: Backend storage priority logic
+
+### ⚠️ WAITING FOR GITHUB RECOVERY
+
+**Current Status**:
+- ✅ Commit d92f1c8 created locally with all fixes
+- ❌ Cannot push to GitHub (500 Internal Server Error)
+- 🕐 GitHub infrastructure issues (confirmed at https://www.githubstatus.com/)
+- ⏳ Waiting for GitHub to recover
+
+**What Happens Next**:
+1. Wait for GitHub to resolve infrastructure issues
+2. Push commit d92f1c8 to GitHub: `git push origin master`
+3. Railway will auto-deploy within 2-3 minutes
+4. Test with two different user accounts to verify data isolation
+5. Check Railway logs for `[LOGIN]`, `[SAVE]`, `[LOAD]` output
+
+**To Resume**:
+```bash
+# When GitHub is back online:
+cd "C:\Users\PCJeroen\OneDrive\WisselApp"
+git push origin master
+
+# After Railway deploys, check logs for:
+# - Are different users getting different user IDs?
+# - Is data being saved/loaded with correct user IDs?
+```
+
+**Railway URL**: https://wisselapp-production-cac6.up.railway.app/
+
+---
+**Last Updated**: November 18, 2025
+**Status**: ⏳ Waiting for GitHub infrastructure recovery to push critical user data isolation fix (commit d92f1c8)

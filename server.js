@@ -138,6 +138,27 @@ app.post('/api/logout', (req, res) => {
   });
 });
 
+// Admin debug endpoint - check users in database
+app.get('/api/admin/debug-users', (req, res) => {
+  const { secret } = req.query;
+  const ADMIN_SECRET = process.env.ADMIN_SECRET || 'reset-my-password-please';
+
+  if (secret !== ADMIN_SECRET) {
+    return res.status(403).json({ error: 'Invalid admin secret' });
+  }
+
+  try {
+    const users = db.prepare('SELECT id, email, created_at FROM users').all();
+    res.json({
+      success: true,
+      userCount: users.length,
+      users: users
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Database error: ' + error.message });
+  }
+});
+
 // Admin password reset endpoint (for emergencies)
 app.post('/api/admin/reset-password', async (req, res) => {
   const { email, newPassword, adminSecret } = req.body;

@@ -437,12 +437,18 @@ class RotationEngine {
         const moment = this.schedule[momentIndex];
         const lineup = moment.lineup;
 
+        // Convert to numbers to handle string/number mismatch from dataset
+        const id1 = parseInt(playerId1);
+        const id2 = parseInt(playerId2);
+
         // Find the two players in the current lineup
-        const player1Lineup = lineup.find(p => p.player.id === playerId1);
-        const player2Lineup = lineup.find(p => p.player.id === playerId2);
+        const player1Lineup = lineup.find(p => p.player.id === id1);
+        const player2Lineup = lineup.find(p => p.player.id === id2);
 
         if (!player1Lineup || !player2Lineup) {
             console.error('One or both players not found in lineup');
+            console.error(`Looking for player IDs: ${id1} and ${id2}`);
+            console.error('Available players in lineup:', lineup.map(p => `${p.player.name}(${p.player.id})`));
             return;
         }
 
@@ -470,8 +476,8 @@ class RotationEngine {
             const futureLineup = futureMoment.lineup;
 
             // Find players in future lineups and update their positions if they're playing
-            const futurePlayer1 = futureLineup.find(p => p.player.id === playerId1);
-            const futurePlayer2 = futureLineup.find(p => p.player.id === playerId2);
+            const futurePlayer1 = futureLineup.find(p => p.player.id === id1);
+            const futurePlayer2 = futureLineup.find(p => p.player.id === id2);
 
             if (futurePlayer1) {
                 // Player 1 maintains the swapped base position

@@ -271,6 +271,11 @@ app.get('/', (req, res) => {
   }
 });
 
+// Redirect /admin to /admin.html for convenience
+app.get('/admin', (req, res) => {
+  res.redirect('/admin.html');
+});
+
 // Serve static files AFTER auth routes so auth check happens first
 app.use(express.static('.'));
 

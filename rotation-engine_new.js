@@ -427,7 +427,7 @@ class RotationEngine {
     }
 
     swapPlayerPositions(momentIndex, playerId1, playerId2) {
-        console.log(`🔄 Swapping positions for players ${playerId1} and ${playerId2} from moment ${momentIndex + 1}`);
+        console.log(`🔄 Swapping players ${playerId1} and ${playerId2} from moment ${momentIndex + 1}`);
 
         if (!this.schedule || momentIndex >= this.schedule.length) {
             console.error('Invalid moment index');
@@ -452,53 +452,52 @@ class RotationEngine {
             return;
         }
 
-        // Swap their base positions
-        const tempBasePos = player1Lineup.player.basePosition;
-        player1Lineup.player.basePosition = player2Lineup.player.basePosition;
-        player2Lineup.player.basePosition = tempBasePos;
+        // Store the positions we're swapping
+        const position1 = player1Lineup.position;
+        const position2 = player2Lineup.position;
 
-        // Swap their current field positions
-        const tempPosition = player1Lineup.position;
-        player1Lineup.position = player2Lineup.position;
-        player2Lineup.position = tempPosition;
+        console.log(`Swapping: ${player1Lineup.player.name} at ${position1} ↔ ${player2Lineup.player.name} at ${position2}`);
 
-        // Update field positions on player objects
-        player1Lineup.player.fieldPosition = player1Lineup.position;
-        player2Lineup.player.fieldPosition = player2Lineup.position;
-        player1Lineup.player.assignedPosition = player1Lineup.position;
-        player2Lineup.player.assignedPosition = player2Lineup.position;
+        // Swap positions in current moment
+        player1Lineup.position = position2;
+        player2Lineup.position = position1;
 
-        console.log(`✅ Swapped: ${player1Lineup.player.name} (${tempPosition} → ${player1Lineup.position}) ↔ ${player2Lineup.player.name} (${player2Lineup.position} → ${tempPosition})`);
+        // Update player objects
+        player1Lineup.player.fieldPosition = position2;
+        player2Lineup.player.fieldPosition = position1;
+        player1Lineup.player.assignedPosition = position2;
+        player2Lineup.player.assignedPosition = position1;
 
-        // Update all subsequent moments to reflect the swap
+        // For all subsequent moments where BOTH players are playing, swap their positions
         for (let i = momentIndex + 1; i < this.schedule.length; i++) {
             const futureMoment = this.schedule[i];
             const futureLineup = futureMoment.lineup;
 
-            // Find players in future lineups and update their positions if they're playing
+            // Find both players in this future lineup
             const futurePlayer1 = futureLineup.find(p => p.player.id === id1);
             const futurePlayer2 = futureLineup.find(p => p.player.id === id2);
 
-            if (futurePlayer1) {
-                // Player 1 maintains the swapped base position
-                const currentQuarter = futureMoment.quarter;
-                const newPos = this.getSwappedPosition(futurePlayer1.player.basePosition, currentQuarter);
-                futurePlayer1.position = newPos;
-                futurePlayer1.player.fieldPosition = newPos;
-                futurePlayer1.player.assignedPosition = newPos;
-            }
+            // Only swap if BOTH players are playing in this moment
+            if (futurePlayer1 && futurePlayer2) {
+                // Swap their positions
+                const tempPos = futurePlayer1.position;
+                futurePlayer1.position = futurePlayer2.position;
+                futurePlayer2.position = tempPos;
 
-            if (futurePlayer2) {
-                // Player 2 maintains the swapped base position
-                const currentQuarter = futureMoment.quarter;
-                const newPos = this.getSwappedPosition(futurePlayer2.player.basePosition, currentQuarter);
-                futurePlayer2.position = newPos;
-                futurePlayer2.player.fieldPosition = newPos;
-                futurePlayer2.player.assignedPosition = newPos;
+                // Update player objects
+                futurePlayer1.player.fieldPosition = futurePlayer1.position;
+                futurePlayer2.player.fieldPosition = futurePlayer2.position;
+                futurePlayer1.player.assignedPosition = futurePlayer1.position;
+                futurePlayer2.player.assignedPosition = futurePlayer2.position;
+
+                console.log(`  Moment ${i + 1}: ${futurePlayer1.player.name} now at ${futurePlayer1.position}, ${futurePlayer2.player.name} now at ${futurePlayer2.position}`);
+            } else {
+                // If only one player is playing, they keep whatever position they were assigned
+                console.log(`  Moment ${i + 1}: Only one player playing, no swap needed`);
             }
         }
 
-        // Recalculate substitutions for all moments
+        // Recalculate substitutions for all moments (to update in/out indicators)
         for (let i = 1; i < this.schedule.length; i++) {
             this.schedule[i].substitutions = this.calculateSubstitutions(
                 this.schedule[i - 1].lineup,
@@ -506,6 +505,6 @@ class RotationEngine {
             );
         }
 
-        console.log('✅ Position swap complete for all subsequent moments');
+        console.log('✅ Player swap complete for all subsequent moments');
     }
 }

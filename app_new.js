@@ -210,40 +210,57 @@ class App {
     }
 
     handlePlayerCardClick(nameCard) {
-        if (!this.rotationEngine) return;
+        console.log('🎯 Player card clicked:', nameCard);
+
+        if (!this.rotationEngine) {
+            console.log('❌ No rotation engine');
+            return;
+        }
 
         const playerId = nameCard.dataset.playerId;
         const position = nameCard.dataset.position;
         const momentIndex = parseInt(nameCard.dataset.momentIndex);
+
+        console.log(`📋 Player data: ID=${playerId}, Pos=${position}, Moment=${momentIndex}`);
+        console.log(`📊 Currently selected:`, this.selectedPlayersForSwap.length, 'players');
 
         // Check if player is already selected
         const alreadySelected = this.selectedPlayersForSwap.findIndex(p => p.playerId === playerId && p.momentIndex === momentIndex);
 
         if (alreadySelected !== -1) {
             // Deselect
+            console.log('🔴 Deselecting player');
             this.selectedPlayersForSwap.splice(alreadySelected, 1);
             nameCard.classList.remove('selected');
         } else {
             // Select player
             if (this.selectedPlayersForSwap.length >= 2) {
                 // Clear previous selections
+                console.log('🧹 Clearing previous selections (had 2 already)');
                 document.querySelectorAll('.player-namecard.selected').forEach(card => {
                     card.classList.remove('selected');
                 });
                 this.selectedPlayersForSwap = [];
             }
 
+            console.log('✅ Selecting player');
             this.selectedPlayersForSwap.push({ playerId, position, momentIndex, element: nameCard });
             nameCard.classList.add('selected');
 
             // If we now have 2 players selected from the same moment, perform swap
             if (this.selectedPlayersForSwap.length === 2) {
+                console.log('🎲 Two players selected, checking if same moment...');
                 const player1 = this.selectedPlayersForSwap[0];
                 const player2 = this.selectedPlayersForSwap[1];
 
+                console.log(`Player 1: ${player1.playerId} at moment ${player1.momentIndex}`);
+                console.log(`Player 2: ${player2.playerId} at moment ${player2.momentIndex}`);
+
                 if (player1.momentIndex === player2.momentIndex) {
+                    console.log('✅ Same moment! Swapping...');
                     this.swapPlayerPositions(player1, player2);
                 } else {
+                    console.log('❌ Different moments!');
                     alert('Please select two players from the same moment to swap positions.');
                     // Clear selections
                     document.querySelectorAll('.player-namecard.selected').forEach(card => {
@@ -381,7 +398,7 @@ class App {
                         nameCard.dataset.momentIndex = momentIndex;
 
                         nameCard.addEventListener('click', (e) => {
-                            this.handlePlayerCardClick(e.target);
+                            this.handlePlayerCardClick(e.currentTarget);
                         });
                     }
 

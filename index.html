@@ -10,36 +10,13 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Geist:wght@100;200;300;400;500;600;700;800;900&family=Geist+Mono:wght@100;200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles_shadcn.css">
-
-    <!-- Clerk Authentication SDK -->
-    <script
-      async
-      crossorigin="anonymous"
-      data-clerk-publishable-key="pk_test_ZW5nYWdlZC10ZXJyYXBpbi0xNi5jbGVyay5hY2NvdW50cy5kZXYk"
-      src="https://engaged-terrapin-16.clerk.accounts.dev/npm/@clerk/clerk-js@5/dist/clerk.browser.js"
-      type="text/javascript"
-    ></script>
 </head>
 <body>
-    <!-- Loading screen while Clerk initializes -->
-    <div id="clerk-loading" style="min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); font-family: 'Geist Sans', sans-serif;">
-        <div style="text-align: center; color: white;">
-            <div style="font-size: 48px; margin-bottom: 16px;">🏒</div>
-            <h2 style="font-size: 24px; margin: 0 0 8px 0;">Hockey Team Manager</h2>
-            <p style="font-size: 14px; opacity: 0.8; margin: 0;">Loading...</p>
-        </div>
-    </div>
-
-    <!-- Hide main content by default until Clerk authentication completes -->
-    <div class="container" style="display: none;">
+    <div class="container">
         <header>
             <div class="header-top">
                 <h1>Hockey Team Manager</h1>
                 <div class="user-info">
-                    <div class="user-status">
-                        <span class="status-indicator"></span>
-                        <span id="user-email" class="user-email">Loading...</span>
-                    </div>
                     <button id="logout-btn" class="btn btn-secondary btn-sm">Sign Out</button>
                 </div>
             </div>
@@ -180,8 +157,19 @@
         </section>
     </div>
 
-    <!-- Clerk Authentication Integration -->
-    <script src="clerk-auth.js"></script>
+    <!-- Simple Logout Handler -->
+    <script>
+        // Handle logout button
+        document.getElementById('logout-btn')?.addEventListener('click', async () => {
+            try {
+                await fetch('/api/logout', { method: 'POST' });
+                window.location.href = '/';
+            } catch (error) {
+                console.error('Logout failed:', error);
+                window.location.href = '/';
+            }
+        });
+    </script>
 
     <script src="database_new.js"></script>
     <script src="storage_new.js"></script>

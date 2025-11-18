@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - Hockey Team Manager</title>
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@100;200;300;400;500;600;700;800;900&family=Geist+Mono:wght@100;200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles_shadcn.css">
+    <style>
+        body {
+            font-family: 'Geist Sans', system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .admin-container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 48px;
+            max-width: 800px;
+            width: 100%;
+        }
+
+        .admin-header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .admin-header h1 {
+            font-size: 32px;
+            font-weight: 700;
+            color: #1a1a1a;
+            margin: 0 0 8px 0;
+        }
+
+        .admin-header p {
+            font-size: 16px;
+            color: #666;
+            margin: 0;
+        }
+
+        .login-section, .panel-section {
+            display: none;
+        }
+
+        .login-section.active, .panel-section.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #333;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            font-family: 'Geist Sans', sans-serif;
+            box-sizing: border-box;
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: #e2e8f0;
+            color: #334155;
+        }
+
+        .btn-secondary:hover {
+            background: #cbd5e1;
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        .users-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+
+        .users-table th {
+            text-align: left;
+            padding: 12px;
+            background: #f8fafc;
+            border-bottom: 2px solid #e2e8f0;
+            font-weight: 600;
+            color: #334155;
+        }
+
+        .users-table td {
+            padding: 12px;
+            border-bottom: 1px solid #e2e8f0;
+            color: #64748b;
+        }
+
+        .users-table tr:hover {
+            background: #f8fafc;
+        }
+
+        .alert {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .alert-success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #6ee7b7;
+        }
+
+        .alert-error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fca5a5;
+        }
+
+        .logout-btn {
+            text-align: right;
+            margin-bottom: 20px;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-container">
+        <div class="admin-header">
+            <h1>🔐 Admin Panel</h1>
+            <p>Hockey Team Manager</p>
+        </div>
+
+        <!-- Login Section -->
+        <div class="login-section active" id="login-section">
+            <div id="login-message"></div>
+            <form id="admin-login-form">
+                <div class="form-group">
+                    <label for="admin-password">Admin Password</label>
+                    <input type="password" id="admin-password" placeholder="Enter admin password" required>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Access Admin Panel</button>
+            </form>
+        </div>
+
+        <!-- Admin Panel Section -->
+        <div class="panel-section" id="panel-section">
+            <div class="logout-btn">
+                <button id="admin-logout-btn" class="btn btn-secondary">Logout</button>
+            </div>
+
+            <div id="panel-message"></div>
+
+            <!-- Users List -->
+            <div style="margin-bottom: 32px;">
+                <h2 style="font-size: 20px; font-weight: 600; margin-bottom: 16px;">Registered Users</h2>
+                <table class="users-table" id="users-table">
+                    <thead>
+                        <tr>
+                            <th>Email</th>
+                            <th>Created</th>
+                        </tr>
+                    </thead>
+                    <tbody id="users-list">
+                        <tr>
+                            <td colspan="2" style="text-align: center; color: #94a3b8;">Loading...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Reset Password Form -->
+            <div>
+                <h2 style="font-size: 20px; font-weight: 600; margin-bottom: 16px;">Reset User Password</h2>
+                <form id="reset-password-form">
+                    <div class="form-group">
+                        <label for="user-email">User Email</label>
+                        <select id="user-email" required>
+                            <option value="">Select a user...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="new-password">New Password</label>
+                        <input type="password" id="new-password" placeholder="Enter new password (min 6 characters)" required minlength="6">
+                    </div>
+                    <div class="form-group">
+                        <label for="confirm-password">Confirm New Password</label>
+                        <input type="password" id="confirm-password" placeholder="Confirm new password" required minlength="6">
+                    </div>
+                    <button type="submit" class="btn btn-danger">Reset Password</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const loginSection = document.getElementById('login-section');
+        const panelSection = document.getElementById('panel-section');
+        const loginMessage = document.getElementById('login-message');
+        const panelMessage = document.getElementById('panel-message');
+
+        // Admin login
+        document.getElementById('admin-login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const password = document.getElementById('admin-password').value;
+
+            try {
+                const response = await fetch('/api/admin/verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    loginSection.classList.remove('active');
+                    panelSection.classList.add('active');
+                    loadUsers();
+                } else {
+                    showMessage(loginMessage, data.error, 'error');
+                }
+            } catch (error) {
+                showMessage(loginMessage, 'Connection error', 'error');
+            }
+        });
+
+        // Admin logout
+        document.getElementById('admin-logout-btn').addEventListener('click', async () => {
+            await fetch('/api/admin/logout', { method: 'POST' });
+            panelSection.classList.remove('active');
+            loginSection.classList.add('active');
+            document.getElementById('admin-password').value = '';
+            clearMessage(loginMessage);
+        });
+
+        // Load users
+        async function loadUsers() {
+            try {
+                const response = await fetch('/api/admin/users');
+                const data = await response.json();
+
+                if (data.success && data.users) {
+                    const usersList = document.getElementById('users-list');
+                    const userSelect = document.getElementById('user-email');
+
+                    if (data.users.length === 0) {
+                        usersList.innerHTML = '<tr><td colspan="2" style="text-align: center; color: #94a3b8;">No users registered yet</td></tr>';
+                        userSelect.innerHTML = '<option value="">No users available</option>';
+                    } else {
+                        usersList.innerHTML = data.users.map(user => `
+                            <tr>
+                                <td>${user.email}</td>
+                                <td>${new Date(user.created_at).toLocaleDateString()}</td>
+                            </tr>
+                        `).join('');
+
+                        userSelect.innerHTML = '<option value="">Select a user...</option>' +
+                            data.users.map(user => `<option value="${user.email}">${user.email}</option>`).join('');
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load users:', error);
+            }
+        }
+
+        // Reset password
+        document.getElementById('reset-password-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const email = document.getElementById('user-email').value;
+            const newPassword = document.getElementById('new-password').value;
+            const confirmPassword = document.getElementById('confirm-password').value;
+
+            clearMessage(panelMessage);
+
+            if (!email) {
+                showMessage(panelMessage, 'Please select a user', 'error');
+                return;
+            }
+
+            if (newPassword !== confirmPassword) {
+                showMessage(panelMessage, 'Passwords do not match', 'error');
+                return;
+            }
+
+            if (newPassword.length < 6) {
+                showMessage(panelMessage, 'Password must be at least 6 characters', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/admin/reset-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, newPassword })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showMessage(panelMessage, `Password reset successfully for ${email}`, 'success');
+                    document.getElementById('reset-password-form').reset();
+                } else {
+                    showMessage(panelMessage, data.error, 'error');
+                }
+            } catch (error) {
+                showMessage(panelMessage, 'Connection error', 'error');
+            }
+        });
+
+        // Helper functions
+        function showMessage(container, message, type) {
+            container.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+        }
+
+        function clearMessage(container) {
+            container.innerHTML = '';
+        }
+    </script>
+</body>
+</html>

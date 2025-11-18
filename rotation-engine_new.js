@@ -425,4 +425,81 @@ class RotationEngine {
         }
         return null;
     }
+
+    swapPlayerPositions(momentIndex, playerId1, playerId2) {
+        console.log(`🔄 Swapping positions for players ${playerId1} and ${playerId2} from moment ${momentIndex + 1}`);
+
+        if (!this.schedule || momentIndex >= this.schedule.length) {
+            console.error('Invalid moment index');
+            return;
+        }
+
+        const moment = this.schedule[momentIndex];
+        const lineup = moment.lineup;
+
+        // Find the two players in the current lineup
+        const player1Lineup = lineup.find(p => p.player.id === playerId1);
+        const player2Lineup = lineup.find(p => p.player.id === playerId2);
+
+        if (!player1Lineup || !player2Lineup) {
+            console.error('One or both players not found in lineup');
+            return;
+        }
+
+        // Swap their base positions
+        const tempBasePos = player1Lineup.player.basePosition;
+        player1Lineup.player.basePosition = player2Lineup.player.basePosition;
+        player2Lineup.player.basePosition = tempBasePos;
+
+        // Swap their current field positions
+        const tempPosition = player1Lineup.position;
+        player1Lineup.position = player2Lineup.position;
+        player2Lineup.position = tempPosition;
+
+        // Update field positions on player objects
+        player1Lineup.player.fieldPosition = player1Lineup.position;
+        player2Lineup.player.fieldPosition = player2Lineup.position;
+        player1Lineup.player.assignedPosition = player1Lineup.position;
+        player2Lineup.player.assignedPosition = player2Lineup.position;
+
+        console.log(`✅ Swapped: ${player1Lineup.player.name} (${tempPosition} → ${player1Lineup.position}) ↔ ${player2Lineup.player.name} (${player2Lineup.position} → ${tempPosition})`);
+
+        // Update all subsequent moments to reflect the swap
+        for (let i = momentIndex + 1; i < this.schedule.length; i++) {
+            const futureMoment = this.schedule[i];
+            const futureLineup = futureMoment.lineup;
+
+            // Find players in future lineups and update their positions if they're playing
+            const futurePlayer1 = futureLineup.find(p => p.player.id === playerId1);
+            const futurePlayer2 = futureLineup.find(p => p.player.id === playerId2);
+
+            if (futurePlayer1) {
+                // Player 1 maintains the swapped base position
+                const currentQuarter = futureMoment.quarter;
+                const newPos = this.getSwappedPosition(futurePlayer1.player.basePosition, currentQuarter);
+                futurePlayer1.position = newPos;
+                futurePlayer1.player.fieldPosition = newPos;
+                futurePlayer1.player.assignedPosition = newPos;
+            }
+
+            if (futurePlayer2) {
+                // Player 2 maintains the swapped base position
+                const currentQuarter = futureMoment.quarter;
+                const newPos = this.getSwappedPosition(futurePlayer2.player.basePosition, currentQuarter);
+                futurePlayer2.position = newPos;
+                futurePlayer2.player.fieldPosition = newPos;
+                futurePlayer2.player.assignedPosition = newPos;
+            }
+        }
+
+        // Recalculate substitutions for all moments
+        for (let i = 1; i < this.schedule.length; i++) {
+            this.schedule[i].substitutions = this.calculateSubstitutions(
+                this.schedule[i - 1].lineup,
+                this.schedule[i].lineup
+            );
+        }
+
+        console.log('✅ Position swap complete for all subsequent moments');
+    }
 }

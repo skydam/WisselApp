@@ -3,7 +3,8 @@ class App {
     constructor() {
         this.currentSection = 'players';
         this.rotationEngine = null;
-        
+        this.selectedPlayersForSwap = []; // Track selected players for position swapping
+
         this.initializeNavigation();
         this.initializeGameControls();
     }
@@ -208,12 +209,84 @@ class App {
         }
     }
 
+    handlePlayerCardClick(nameCard) {
+        if (!this.rotationEngine) return;
+
+        const playerId = nameCard.dataset.playerId;
+        const position = nameCard.dataset.position;
+        const momentIndex = parseInt(nameCard.dataset.momentIndex);
+
+        // Check if player is already selected
+        const alreadySelected = this.selectedPlayersForSwap.findIndex(p => p.playerId === playerId && p.momentIndex === momentIndex);
+
+        if (alreadySelected !== -1) {
+            // Deselect
+            this.selectedPlayersForSwap.splice(alreadySelected, 1);
+            nameCard.classList.remove('selected');
+        } else {
+            // Select player
+            if (this.selectedPlayersForSwap.length >= 2) {
+                // Clear previous selections
+                document.querySelectorAll('.player-namecard.selected').forEach(card => {
+                    card.classList.remove('selected');
+                });
+                this.selectedPlayersForSwap = [];
+            }
+
+            this.selectedPlayersForSwap.push({ playerId, position, momentIndex, element: nameCard });
+            nameCard.classList.add('selected');
+
+            // If we now have 2 players selected from the same moment, perform swap
+            if (this.selectedPlayersForSwap.length === 2) {
+                const player1 = this.selectedPlayersForSwap[0];
+                const player2 = this.selectedPlayersForSwap[1];
+
+                if (player1.momentIndex === player2.momentIndex) {
+                    this.swapPlayerPositions(player1, player2);
+                } else {
+                    alert('Please select two players from the same moment to swap positions.');
+                    // Clear selections
+                    document.querySelectorAll('.player-namecard.selected').forEach(card => {
+                        card.classList.remove('selected');
+                    });
+                    this.selectedPlayersForSwap = [];
+                }
+            }
+        }
+    }
+
+    swapPlayerPositions(player1, player2) {
+        console.log(`Swapping positions: Player ${player1.playerId} (${player1.position}) ↔ Player ${player2.playerId} (${player2.position})`);
+
+        // Call rotation engine to swap positions from this moment forward
+        this.rotationEngine.swapPlayerPositions(
+            player1.momentIndex,
+            player1.playerId,
+            player2.playerId
+        );
+
+        // Clear selections
+        document.querySelectorAll('.player-namecard.selected').forEach(card => {
+            card.classList.remove('selected');
+        });
+        this.selectedPlayersForSwap = [];
+
+        // Re-render all displays
+        const schedule = this.rotationEngine.getSchedule();
+        this.populateSubstitutionMoments(schedule);
+        this.populatePlayingTimeDistribution();
+        this.populateGanttChart();
+        this.populateSubstitutionSchedule(schedule);
+
+        console.log('Positions swapped and displays updated!');
+    }
+
     populateSubstitutionMoments(schedule) {
         const container = document.getElementById('substitution-moments');
         if (!container) return;
 
         container.innerHTML = '';
-        
+
         schedule.forEach((moment, index) => {
             const momentDiv = this.createSubstitutionMoment(moment, index);
             container.appendChild(momentDiv);
@@ -223,9 +296,9 @@ class App {
     createSubstitutionMoment(moment, index) {
         const div = document.createElement('div');
         div.className = 'substitution-moment';
-        
-        // Create field formation
-        const field = this.createMiniField(moment.lineup, moment.substitutions);
+
+        // Create field formation with moment index for swapping
+        const field = this.createMiniField(moment.lineup, moment.substitutions, index);
         
         // Get bench players (available but not in lineup)
         const availablePlayers = this.rotationEngine ? this.rotationEngine.playerManager.getAvailablePlayers() : [];
@@ -257,17 +330,17 @@ class App {
         return div;
     }
 
-    createMiniField(lineup, substitutions = []) {
+    createMiniField(lineup, substitutions = [], momentIndex = 0) {
         const field = document.createElement('div');
         field.className = 'mini-field';
-        
+
         // Group players by position type for 3-3-3-1-1 formation
         const goalkeeper = lineup.find(p => p.position === 'G');
         const forwards = lineup.filter(p => p.position.startsWith('F')).sort((a, b) => a.position.localeCompare(b.position)); // F1, F2, F3
         const midfield = lineup.filter(p => p.position.startsWith('M')).sort((a, b) => a.position.localeCompare(b.position)); // M1, M2, M3
         const defenders = lineup.filter(p => p.position.startsWith('D')).sort((a, b) => a.position.localeCompare(b.position)); // D1, D2, D3
         const sweeper = lineup.filter(p => p.position === 'S1'); // S1
-        
+
         // Create layers in proper order (top to bottom: forwards, midfield, defenders, sweeper, goalkeeper)
         const layers = [
             { name: 'forwards', players: forwards },
@@ -276,38 +349,49 @@ class App {
             { name: 'sweeper', players: sweeper },
             { name: 'goalkeeper', players: goalkeeper ? [goalkeeper] : [] }
         ];
-        
+
         layers.forEach(layer => {
             if (layer.players.length > 0) {
                 const layerDiv = document.createElement('div');
                 layerDiv.className = `field-layer ${layer.name}`;
-                
+
                 layer.players.forEach(playerPos => {
                     const nameCard = document.createElement('div');
                     let cardClass = 'player-namecard';
-                    
+
                     // Add substitution styling
-                    const isOut = substitutions.some(sub => 
+                    const isOut = substitutions.some(sub =>
                         sub.type === 'out' && sub.player.id === playerPos.player.id
                     );
-                    const isIn = substitutions.some(sub => 
+                    const isIn = substitutions.some(sub =>
                         sub.type === 'in' && sub.player.id === playerPos.player.id
                     );
-                    
+
                     if (isOut) cardClass += ' player-out';
                     if (isIn) cardClass += ' player-in';
                     if (playerPos.position === 'G') cardClass += ' goalkeeper';
-                    
+
                     nameCard.className = cardClass;
-                    nameCard.textContent = playerPos.player.name; // Remove position code
-                    
+                    nameCard.textContent = playerPos.player.name;
+
+                    // Add click handler for position swapping (skip goalkeeper)
+                    if (playerPos.position !== 'G') {
+                        nameCard.dataset.playerId = playerPos.player.id;
+                        nameCard.dataset.position = playerPos.position;
+                        nameCard.dataset.momentIndex = momentIndex;
+
+                        nameCard.addEventListener('click', (e) => {
+                            this.handlePlayerCardClick(e.target);
+                        });
+                    }
+
                     layerDiv.appendChild(nameCard);
                 });
-                
+
                 field.appendChild(layerDiv);
             }
         });
-        
+
         return field;
     }
 

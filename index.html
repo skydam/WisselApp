@@ -159,6 +159,7 @@
         // Check authentication status and enable backend storage
         async function checkAuth() {
             try {
+                console.log('🔐 Checking authentication...');
                 const response = await fetch('/api/auth/status', {
                     credentials: 'same-origin'
                 });
@@ -184,8 +185,35 @@
             }
         }
 
-        // Run auth check immediately
-        checkAuth();
+        // Load app scripts dynamically after auth check
+        function loadAppScripts() {
+            console.log('📦 Loading application scripts...');
+            const scripts = [
+                'database_new.js',
+                'storage_new.js',
+                'player-manager_new.js',
+                'rotation-engine_new.js',
+                'app_new.js',
+                'test-data_new.js'
+            ];
+
+            scripts.forEach((src, index) => {
+                const script = document.createElement('script');
+                script.src = src;
+                if (index === scripts.length - 1) {
+                    script.onload = () => console.log('✅ All scripts loaded, app ready');
+                }
+                document.body.appendChild(script);
+            });
+        }
+
+        // Initialize app: check auth FIRST, then load scripts
+        (async function initializeApp() {
+            const authenticated = await checkAuth();
+            if (authenticated) {
+                loadAppScripts();
+            }
+        })();
 
         // Handle logout button
         document.getElementById('logout-btn')?.addEventListener('click', async () => {
@@ -198,12 +226,5 @@
             }
         });
     </script>
-
-    <script src="database_new.js"></script>
-    <script src="storage_new.js"></script>
-    <script src="player-manager_new.js"></script>
-    <script src="rotation-engine_new.js"></script>
-    <script src="app_new.js"></script>
-    <script src="test-data_new.js"></script>
 </body>
 </html>

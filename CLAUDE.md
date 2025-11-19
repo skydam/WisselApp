@@ -467,34 +467,103 @@ Railway deployment should now work. Test checklist:
 - `index.html`: Authentication check and `useBackendStorage` setup
 - `storage_new.js`: Backend storage priority logic
 
-### ⚠️ WAITING FOR GITHUB RECOVERY
+### ✅ DEPLOYED: November 18, 2025 - Database Schema & Logging
 
-**Current Status**:
-- ✅ Commit d92f1c8 created locally with all fixes
-- ❌ Cannot push to GitHub (500 Internal Server Error)
-- 🕐 GitHub infrastructure issues (confirmed at https://www.githubstatus.com/)
-- ⏳ Waiting for GitHub to recover
+**Commits**:
+- d92f1c8: Database UNIQUE constraint, authentication check, debugging logs
+- 0581b23: Documentation update
 
-**What Happens Next**:
-1. Wait for GitHub to resolve infrastructure issues
-2. Push commit d92f1c8 to GitHub: `git push origin master`
-3. Railway will auto-deploy within 2-3 minutes
-4. Test with two different user accounts to verify data isolation
-5. Check Railway logs for `[LOGIN]`, `[SAVE]`, `[LOAD]` output
+**What Was Fixed**:
+1. Database schema updated with UNIQUE constraint on `team_data.user_id`
+2. Authentication check added to `index.html`
+3. Extensive debugging logs in `server.js` for [LOGIN], [SAVE], [LOAD]
 
-**To Resume**:
-```bash
-# When GitHub is back online:
-cd "C:\Users\PCJeroen\OneDrive\WisselApp"
-git push origin master
+---
 
-# After Railway deploys, check logs for:
-# - Are different users getting different user IDs?
-# - Is data being saved/loaded with correct user IDs?
+## CRITICAL FIX: November 19, 2025 - Race Condition Bug
+
+### The Problem: User Data Still Being Shared
+
+**User Report**: After deploying d92f1c8, users with different email accounts were still seeing the same player data. Creating players in one account would overwrite data in another account.
+
+### Root Cause Analysis
+
+**Race Condition in index.html**:
+```javascript
+// OLD CODE (BROKEN):
+checkAuth();  // Async function, doesn't wait
+<script src="player-manager_new.js"></script>  // Loads immediately!
+
+// EXECUTION ORDER:
+1. checkAuth() starts (async, returns immediately)
+2. Scripts load and execute
+3. PlayerManager constructor runs
+4. storage.loadPlayers() checks window.useBackendStorage → UNDEFINED!
+5. Falls back to localStorage (shared across all users) ❌
+6. checkAuth() finishes, sets window.useBackendStorage = true (too late!)
 ```
+
+**Result**: Every user was unknowingly using **shared browser localStorage** instead of the user-specific backend database!
+
+### The Fix (Commit c1584e9)
+
+**Dynamic Script Loading After Auth Check**:
+```javascript
+// NEW CODE (FIXED):
+(async function initializeApp() {
+    const authenticated = await checkAuth();  // WAIT for completion
+    if (authenticated) {
+        loadAppScripts();  // Load scripts AFTER flag is set
+    }
+})();
+
+// EXECUTION ORDER:
+1. checkAuth() starts and COMPLETES
+2. window.useBackendStorage = true is set ✅
+3. THEN scripts load dynamically
+4. PlayerManager runs with correct flag
+5. storage.loadPlayers() uses backend API (user-specific) ✅
+```
+
+**Changes Made** (`index.html:157-228`):
+- Wrapped initialization in async IIFE
+- Await `checkAuth()` completion before proceeding
+- Created `loadAppScripts()` to dynamically inject script tags
+- Scripts only load after `window.useBackendStorage` is guaranteed to be set
+
+### Expected Console Output After Fix
+
+```
+🔐 Checking authentication...
+✅ User authenticated, enabling backend storage
+📦 Loading application scripts...
+✅ All scripts loaded, app ready
+📂 Loading players from storage...
+📦 Loaded X players from SERVER (user-specific)
+💾 Saving X players to storage...
+✅ Saved to server + localStorage
+```
+
+### Testing Instructions
+
+**IMPORTANT**: Clear browser localStorage before testing!
+1. Go to: https://wisselapp-production-cac6.up.railway.app/
+2. Open DevTools → Console
+3. Sign up with `user1@example.com`, add boys names
+4. Check console for "SERVER (user-specific)" messages
+5. Logout, sign up with `user2@example.com`, add girls names
+6. Logout, login with `user1@example.com` → Should see **boys names**
+7. Logout, login with `user2@example.com` → Should see **girls names**
+
+### Deployment Status
+
+- ✅ Fix committed locally (c1584e9)
+- ✅ Pushed to GitHub successfully
+- ✅ Railway auto-deployment in progress
+- ⏳ Awaiting user testing confirmation
 
 **Railway URL**: https://wisselapp-production-cac6.up.railway.app/
 
 ---
-**Last Updated**: November 18, 2025
-**Status**: ⏳ Waiting for GitHub infrastructure recovery to push critical user data isolation fix (commit d92f1c8)
+**Last Updated**: November 19, 2025
+**Status**: ✅ Race condition fix deployed - awaiting production testing

@@ -586,7 +586,5 @@ class App {
     }
 }
 
-// Initialize app when DOM is loaded
-document.addEventListener('DOMContentLoaded', function() {
-    window.app = new App();
-});
+// Initialize immediately (scripts are loaded after DOM is ready)
+window.app = new App();

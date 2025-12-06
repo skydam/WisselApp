@@ -448,7 +448,5 @@ class PlayerManager {
 
 let playerManager;
 
-// Initialize when DOM is loaded
-document.addEventListener('DOMContentLoaded', function() {
-    playerManager = new PlayerManager();
-});
+// Initialize immediately (scripts are loaded after DOM is ready)
+playerManager = new PlayerManager();

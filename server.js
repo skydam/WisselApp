@@ -1,3 +1,4 @@
+// WisselApp Backend Server - v1.1.0 (Persistent Storage Edition)
 require('dotenv').config();
 
 const express = require('express');

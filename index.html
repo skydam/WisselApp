@@ -185,8 +185,8 @@
             }
         }
 
-        // Load app scripts dynamically after auth check
-        function loadAppScripts() {
+        // Load app scripts dynamically after auth check (sequentially to avoid race conditions)
+        async function loadAppScripts() {
             console.log('📦 Loading application scripts...');
             const scripts = [
                 'database_new.js',
@@ -197,21 +197,28 @@
                 'test-data_new.js'
             ];
 
-            scripts.forEach((src, index) => {
-                const script = document.createElement('script');
-                script.src = src;
-                if (index === scripts.length - 1) {
-                    script.onload = () => console.log('✅ All scripts loaded, app ready');
-                }
-                document.body.appendChild(script);
-            });
+            // Load scripts one at a time in order
+            for (const src of scripts) {
+                await new Promise((resolve, reject) => {
+                    const script = document.createElement('script');
+                    script.src = src;
+                    script.onload = () => {
+                        console.log(`✅ Loaded: ${src}`);
+                        resolve();
+                    };
+                    script.onerror = () => reject(new Error(`Failed to load ${src}`));
+                    document.body.appendChild(script);
+                });
+            }
+
+            console.log('✅ All scripts loaded, app ready');
         }
 
         // Initialize app: check auth FIRST, then load scripts
         (async function initializeApp() {
             const authenticated = await checkAuth();
             if (authenticated) {
-                loadAppScripts();
+                await loadAppScripts();
             }
         })();
 

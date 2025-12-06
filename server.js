@@ -1,8 +1,10 @@
+require('dotenv').config();
+
 const express = require('express');
 const session = require('express-session');
 const bodyParser = require('body-parser');
 const bcrypt = require('bcryptjs');
-const Database = require('better-sqlite3');
+const { Pool } = require('pg');
 const path = require('path');
 
 const app = express();
@@ -14,59 +16,24 @@ const ALLOWED_EMAILS = [
   // Add more emails here as needed
 ];
 
-// Initialize SQLite database
-const db = new Database('wisselapp.db');
+// Initialize PostgreSQL connection pool
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
+  connectionTimeoutMillis: 10000
+});
 
-// Create tables with proper constraints
-db.exec(`
-  CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    email TEXT UNIQUE NOT NULL,
-    password TEXT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
-
-  CREATE TABLE IF NOT EXISTS team_data (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL UNIQUE,
-    data TEXT NOT NULL,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id)
-  );
-`);
-
-// Migration: Add UNIQUE constraint to existing team_data table if needed
-try {
-  const tableInfo = db.prepare("PRAGMA table_info(team_data)").all();
-  const hasUniqueConstraint = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='team_data'").get();
-
-  if (hasUniqueConstraint && !hasUniqueConstraint.sql.includes('UNIQUE')) {
-    console.log('⚠️  Migrating team_data table to add UNIQUE constraint...');
-
-    // Create new table with UNIQUE constraint
-    db.exec(`
-      CREATE TABLE team_data_new (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER NOT NULL UNIQUE,
-        data TEXT NOT NULL,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id)
-      );
-
-      INSERT INTO team_data_new (id, user_id, data, updated_at)
-      SELECT id, user_id, data, updated_at FROM team_data
-      GROUP BY user_id
-      HAVING id = MAX(id);
-
-      DROP TABLE team_data;
-      ALTER TABLE team_data_new RENAME TO team_data;
-    `);
-
-    console.log('✅ Migration complete - UNIQUE constraint added');
+// Test database connection
+pool.query('SELECT NOW()', (err, res) => {
+  if (err) {
+    console.error('❌ Database connection failed:', err);
+  } else {
+    console.log('✅ Database connected successfully at:', res.rows[0].now);
   }
-} catch (migrationError) {
-  console.log('⚠️  Migration skipped or failed:', migrationError.message);
-}
+});
+
+// Note: Tables should be created in Supabase SQL Editor using supabase-setup.sql
+// This ensures proper permissions and constraints are set
 
 // Middleware
 app.use(bodyParser.json());
@@ -118,15 +85,18 @@ app.post('/api/signup', async (req, res) => {
 
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
-    const stmt = db.prepare('INSERT INTO users (email, password) VALUES (?, ?)');
-    const result = stmt.run(email.toLowerCase(), hashedPassword);
+    const result = await pool.query(
+      'INSERT INTO users (email, password) VALUES ($1, $2) RETURNING id',
+      [email.toLowerCase(), hashedPassword]
+    );
 
-    req.session.userId = result.lastInsertRowid;
+    req.session.userId = result.rows[0].id;
     res.json({ success: true, message: 'Account created successfully' });
   } catch (error) {
-    if (error.message.includes('UNIQUE constraint failed')) {
+    if (error.code === '23505') { // PostgreSQL unique violation
       res.status(400).json({ error: 'Email already registered' });
     } else {
+      console.error('Signup error:', error);
       res.status(500).json({ error: 'Server error' });
     }
   }
@@ -141,8 +111,11 @@ app.post('/api/login', async (req, res) => {
   }
 
   try {
-    const stmt = db.prepare('SELECT * FROM users WHERE email = ?');
-    const user = stmt.get(email.toLowerCase());
+    const result = await pool.query(
+      'SELECT * FROM users WHERE email = $1',
+      [email.toLowerCase()]
+    );
+    const user = result.rows[0];
 
     if (!user) {
       console.log(`🔒 [LOGIN] Failed - user not found: ${email}`);
@@ -177,7 +150,7 @@ app.post('/api/logout', (req, res) => {
 });
 
 // Admin debug endpoint - check users in database
-app.get('/api/admin/debug-users', (req, res) => {
+app.get('/api/admin/debug-users', async (req, res) => {
   const { secret } = req.query;
   const ADMIN_SECRET = process.env.ADMIN_SECRET || 'reset-my-password-please';
 
@@ -186,11 +159,11 @@ app.get('/api/admin/debug-users', (req, res) => {
   }
 
   try {
-    const users = db.prepare('SELECT id, email, created_at FROM users').all();
+    const result = await pool.query('SELECT id, email, created_at FROM users');
     res.json({
       success: true,
-      userCount: users.length,
-      users: users
+      userCount: result.rows.length,
+      users: result.rows
     });
   } catch (error) {
     res.status(500).json({ error: 'Database error: ' + error.message });
@@ -218,10 +191,12 @@ app.post('/api/admin/reset-password', async (req, res) => {
 
   try {
     const hashedPassword = await bcrypt.hash(newPassword, 10);
-    const stmt = db.prepare('UPDATE users SET password = ? WHERE email = ?');
-    const result = stmt.run(hashedPassword, email.toLowerCase());
+    const result = await pool.query(
+      'UPDATE users SET password = $1 WHERE email = $2',
+      [hashedPassword, email.toLowerCase()]
+    );
 
-    if (result.changes === 0) {
+    if (result.rowCount === 0) {
       return res.status(404).json({ error: 'User not found' });
     }
 
@@ -232,18 +207,23 @@ app.post('/api/admin/reset-password', async (req, res) => {
 });
 
 // Check auth status
-app.get('/api/auth/status', (req, res) => {
+app.get('/api/auth/status', async (req, res) => {
   if (req.session.userId) {
-    const stmt = db.prepare('SELECT id, email FROM users WHERE id = ?');
-    const user = stmt.get(req.session.userId);
-    res.json({ authenticated: true, user });
+    try {
+      const result = await pool.query('SELECT id, email FROM users WHERE id = $1', [req.session.userId]);
+      const user = result.rows[0];
+      res.json({ authenticated: true, user });
+    } catch (error) {
+      console.error('Auth status error:', error);
+      res.json({ authenticated: false });
+    }
   } else {
     res.json({ authenticated: false });
   }
 });
 
 // Save team data
-app.post('/api/team/save', requireAuth, (req, res) => {
+app.post('/api/team/save', requireAuth, async (req, res) => {
   const { data } = req.body;
   const userId = req.session.userId;
 
@@ -251,16 +231,20 @@ app.post('/api/team/save', requireAuth, (req, res) => {
 
   try {
     // Check if data exists for this user
-    const existing = db.prepare('SELECT id FROM team_data WHERE user_id = ?').get(userId);
+    const checkResult = await pool.query('SELECT id FROM team_data WHERE user_id = $1', [userId]);
 
-    if (existing) {
+    if (checkResult.rows.length > 0) {
       console.log(`  └─ Updating existing data for user ${userId}`);
-      db.prepare('UPDATE team_data SET data = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?')
-        .run(JSON.stringify(data), userId);
+      await pool.query(
+        'UPDATE team_data SET data = $1, updated_at = CURRENT_TIMESTAMP WHERE user_id = $2',
+        [JSON.stringify(data), userId]
+      );
     } else {
       console.log(`  └─ Inserting new data for user ${userId}`);
-      db.prepare('INSERT INTO team_data (user_id, data) VALUES (?, ?)')
-        .run(userId, JSON.stringify(data));
+      await pool.query(
+        'INSERT INTO team_data (user_id, data) VALUES ($1, $2)',
+        [userId, JSON.stringify(data)]
+      );
     }
 
     console.log(`✅ [SAVE] Data saved successfully for user ${userId}`);
@@ -272,17 +256,16 @@ app.post('/api/team/save', requireAuth, (req, res) => {
 });
 
 // Load team data
-app.get('/api/team/load', requireAuth, (req, res) => {
+app.get('/api/team/load', requireAuth, async (req, res) => {
   const userId = req.session.userId;
 
   console.log(`📂 [LOAD] User ${userId} loading team data`);
 
   try {
-    const stmt = db.prepare('SELECT data FROM team_data WHERE user_id = ?');
-    const result = stmt.get(userId);
+    const result = await pool.query('SELECT data FROM team_data WHERE user_id = $1', [userId]);
 
-    if (result) {
-      const parsedData = JSON.parse(result.data);
+    if (result.rows.length > 0) {
+      const parsedData = JSON.parse(result.rows[0].data);
       const playerCount = parsedData?.players?.length || 0;
       console.log(`✅ [LOAD] Found data for user ${userId} with ${playerCount} players`);
       res.json({ success: true, data: parsedData });
@@ -311,22 +294,21 @@ app.post('/api/admin/verify', (req, res) => {
 });
 
 // List all users (admin only)
-app.get('/api/admin/users', (req, res) => {
+app.get('/api/admin/users', async (req, res) => {
   if (!req.session.isAdmin) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
   try {
-    const stmt = db.prepare('SELECT id, email, created_at FROM users ORDER BY created_at DESC');
-    const users = stmt.all();
-    res.json({ success: true, users });
+    const result = await pool.query('SELECT id, email, created_at FROM users ORDER BY created_at DESC');
+    res.json({ success: true, users: result.rows });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch users' });
   }
 });
 
-// Reset user password (admin only)
-app.post('/api/admin/reset-password', async (req, res) => {
+// Reset user password (admin panel - requires admin session)
+app.post('/api/admin/reset-user-password', async (req, res) => {
   if (!req.session.isAdmin) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
@@ -343,10 +325,12 @@ app.post('/api/admin/reset-password', async (req, res) => {
 
   try {
     const hashedPassword = await bcrypt.hash(newPassword, 10);
-    const stmt = db.prepare('UPDATE users SET password = ? WHERE email = ?');
-    const result = stmt.run(hashedPassword, email.toLowerCase());
+    const result = await pool.query(
+      'UPDATE users SET password = $1 WHERE email = $2',
+      [hashedPassword, email.toLowerCase()]
+    );
 
-    if (result.changes === 0) {
+    if (result.rowCount === 0) {
       return res.status(404).json({ error: 'User not found' });
     }
 

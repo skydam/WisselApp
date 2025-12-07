@@ -1,12 +1,11 @@
 class RotationEngine {
-    constructor(playerManager, substitutionsPerQuarter = 2, swapPositionsAtHalftime = false) {
+    constructor(playerManager, substitutionsPerQuarter = 2) {
         this.playerManager = playerManager;
         this.schedule = [];
         this.gameLength = 70; // minutes
         this.quartersCount = 4;
         this.quarterLength = this.gameLength / this.quartersCount; // 17.5 minutes
         this.substitutionsPerQuarter = substitutionsPerQuarter;
-        this.swapPositionsAtHalftime = swapPositionsAtHalftime;
         // Calculate interval based on number of substitutions per quarter
         this.substitutionInterval = this.quarterLength / (this.substitutionsPerQuarter + 1);
         this.fieldPositions = [
@@ -18,27 +17,18 @@ class RotationEngine {
         this.allPositions = ['G', ...this.fieldPositions]; // G = Goalkeeper
     }
 
-    // Position swap mapping for halftime position changes
-    getSwappedPosition(position, quarter) {
-        // Only swap in second half (quarters 3-4) if enabled
-        if (!this.swapPositionsAtHalftime || quarter < 3) {
-            return position;
-        }
+    // Get position score value: Forward=+1, Midfield=0, Defender/Sweeper=-1
+    getPositionScore(position) {
+        if (position.startsWith('F')) return 1;   // Forward
+        if (position.startsWith('M')) return 0;   // Midfield
+        if (position.startsWith('D') || position === 'S1') return -1; // Defender/Sweeper
+        return 0; // Default (shouldn't happen)
+    }
 
-        const swapMap = {
-            'F1': 'D1',  // Forward 1 → Defender 1
-            'F2': 'D2',  // Forward 2 → Defender 2
-            'F3': 'D3',  // Forward 3 → Defender 3
-            'M1': 'M3',  // Attacking mid → Defensive mid
-            'M2': 'M2',  // Central mid stays central
-            'M3': 'M1',  // Defensive mid → Attacking mid
-            'D1': 'F1',  // Defender 1 → Forward 1
-            'D2': 'F2',  // Defender 2 → Forward 2
-            'D3': 'F3',  // Defender 3 → Forward 3
-            'S1': 'S1'   // Sweeper stays defensive
-        };
-
-        return swapMap[position] || position;
+    // Update player's cumulative position score
+    updatePositionScore(player, position) {
+        const score = this.getPositionScore(position);
+        player.positionScore = (player.positionScore || 0) + score;
     }
 
     // Static method to calculate formation moment options based on roster size
@@ -200,11 +190,13 @@ class RotationEngine {
             const prevMoment = moments[momentIndex - 1];
             const currMoment = moments[momentIndex];
             intervalDuration = currMoment.timeInGame - prevMoment.timeInGame;
-            
-            // Add time for players who were on field in previous interval
+
+            // Add time and position scores for players who were on field in previous interval
             outfieldPlayers.forEach(player => {
-                if (player.isOnField) {
+                if (player.isOnField && player.fieldPosition) {
                     player.playingTime += intervalDuration;
+                    // Update position score based on position played
+                    this.updatePositionScore(player, player.fieldPosition);
                 }
             });
             goalkeeper.playingTime += intervalDuration;
@@ -220,32 +212,28 @@ class RotationEngine {
                 }
                 return timeDiff;
             });
-            
+
             const selectedPlayers = sortedPlayers.slice(0, 10);
-            
-            // Assign positions randomly
+
+            // Assign positions randomly for first moment
             const shuffledPositions = [...this.fieldPositions].sort(() => Math.random() - 0.5);
-            
-            const currentQuarter = moments[momentIndex].quarter;
 
             selectedPlayers.forEach((player, index) => {
-                const basePosition = shuffledPositions[index];
-                const actualPosition = this.getSwappedPosition(basePosition, currentQuarter);
+                const position = shuffledPositions[index];
 
                 player.isOnField = true;
-                player.fieldPosition = actualPosition;
-                player.assignedPosition = actualPosition;
-                player.basePosition = basePosition; // Store base position for tracking
+                player.fieldPosition = position;
+                player.assignedPosition = position;
                 player.consecutiveIntervals = 1;
 
                 lineup.push({
                     player: player,
-                    position: actualPosition,
+                    position: position,
                     isSubstitution: false
                 });
             });
 
-            console.log(`Initial lineup (Q${currentQuarter}): ${selectedPlayers.map(p => `${p.name}(${p.fieldPosition})`).join(', ')}`);
+            console.log(`Initial lineup: ${selectedPlayers.map(p => `${p.name}(${p.fieldPosition})`).join(', ')}`);
             return lineup;
         }
 
@@ -321,29 +309,29 @@ class RotationEngine {
             }
         });
 
-        const currentQuarter = moments[momentIndex].quarter;
+        // Priority 2: Position score balancing - assign positions to balance cumulative scores
+        // Collect available positions from outgoing players
+        const availablePositions = playersToSubOut.map(p => p.fieldPosition || p.assignedPosition);
 
-        // Priority 3: Position variety - try to give players different positions
-        playersToSubIn.forEach((newPlayer, index) => {
-            const outgoingPlayer = playersToSubOut[index];
+        // Sort positions by score value (forward=+1 first, then midfield=0, then defense=-1)
+        availablePositions.sort((a, b) => this.getPositionScore(b) - this.getPositionScore(a));
 
-            // Use base position if available, otherwise use outgoing player's base
-            let basePosition = outgoingPlayer.basePosition || outgoingPlayer.assignedPosition;
-            let actualPosition = this.getSwappedPosition(basePosition, currentQuarter);
-
-            newPlayer.fieldPosition = actualPosition;
-            newPlayer.assignedPosition = actualPosition;
-            newPlayer.basePosition = basePosition; // Track base position
+        // Sort incoming players by their cumulative position score (lowest first)
+        // Players with low/negative scores (played more defense) get forward positions first
+        const sortedIncomingPlayers = [...playersToSubIn].sort((a, b) => {
+            const scoreA = a.positionScore || 0;
+            const scoreB = b.positionScore || 0;
+            return scoreA - scoreB; // Lowest score first
         });
 
-        // Update positions for players staying on field (in case quarter changed)
-        outfieldPlayers.forEach(player => {
-            if (player.isOnField && !playersToSubIn.includes(player)) {
-                // Re-apply swap in case we transitioned to second half
-                let basePosition = player.basePosition || player.assignedPosition;
-                player.fieldPosition = this.getSwappedPosition(basePosition, currentQuarter);
-            }
+        // Assign positions: lowest-score player gets highest-value position (forward)
+        sortedIncomingPlayers.forEach((player, index) => {
+            const position = availablePositions[index];
+            player.fieldPosition = position;
+            player.assignedPosition = position;
         });
+
+        console.log(`Position assignments (score balancing): ${sortedIncomingPlayers.map(p => `${p.name}(score:${p.positionScore || 0})→${p.fieldPosition}`).join(', ')}`);
 
         // Build final lineup
         const finalOnField = outfieldPlayers.filter(p => p.isOnField);

@@ -40,8 +40,9 @@ class PlayerManager {
             name: name.trim(),
             skill: parseInt(skill),
             isGoalkeeper: false,     // NEW: goalkeeper selection
-            isAvailable: true,       // NEW: match availability  
+            isAvailable: true,       // NEW: match availability
             playingTime: 0,
+            positionScore: 0,        // NEW: cumulative position score (forward=+1, mid=0, def=-1)
             isOnField: false,
             fieldPosition: null,
             assignedPosition: null,

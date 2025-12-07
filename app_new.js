@@ -179,10 +179,9 @@ class App {
             // Get settings
             const considerStrength = document.getElementById('consider-strength')?.checked || false;
             const considerFatigue = document.getElementById('consider-fatigue')?.checked || false;
-            const swapPositionsAtHalftime = document.getElementById('swap-positions-halftime')?.checked || false;
 
-            // Initialize rotation engine with selected substitutions per quarter and halftime swap setting
-            this.rotationEngine = new RotationEngine(playerManager, substitutionsPerQuarter, swapPositionsAtHalftime);
+            // Initialize rotation engine with selected substitutions per quarter
+            this.rotationEngine = new RotationEngine(playerManager, substitutionsPerQuarter);
 
             // Generate schedule
             console.log(`Generating schedule with ${substitutionsPerQuarter} substitutions per quarter...`);
@@ -478,12 +477,18 @@ class App {
                         <th>Position</th>
                         <th>Playing Time</th>
                         <th>Intervals</th>
+                        <th>Position Score</th>
                     </tr>
                 </thead>
                 <tbody>
         `;
-        
+
         distribution.forEach(player => {
+            // Position score display: positive (more forward), neutral, or negative (more defense)
+            const posScore = player.positionScore || 0;
+            let scoreDisplay = posScore > 0 ? `+${posScore}` : `${posScore}`;
+            let scoreClass = posScore > 0 ? 'score-positive' : posScore < 0 ? 'score-negative' : 'score-neutral';
+
             html += `
                 <tr>
                     <td><strong>${player.name}</strong></td>
@@ -491,6 +496,7 @@ class App {
                     <td>${player.isGoalkeeper ? 'Goalkeeper' : 'Outfield'}</td>
                     <td>${player.playingTime.toFixed(1)} min</td>
                     <td>${player.intervalsPlayed}/8</td>
+                    <td><span class="${scoreClass}">${player.isGoalkeeper ? 'N/A' : scoreDisplay}</span></td>
                 </tr>
             `;
         });

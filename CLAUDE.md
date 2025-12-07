@@ -88,14 +88,21 @@ WisselApp/
    - Prioritizes players with least accumulated time
    - Typical variance: ±1-2 minutes across all players
 
-2. **Team Strength Balance** (Weight: Moderate) 
+2. **Position Score Balancing** (Weight: High)
+   - Tracks cumulative position scores: Forward = +1, Midfield = 0, Defender/Sweeper = -1 per interval
+   - Players with low/negative scores (played more defense) prioritized for forward positions
+   - Players with high/positive scores (played more forward) prioritized for defensive positions
+   - Ensures fair distribution of attacking and defensive playing time across all players
+   - Displayed in Playing Time Distribution table
+
+3. **Team Strength Balance** (Weight: Moderate)
    - Only considered when playing times are similar (±0.5 min)
    - Balances skill levels to prevent all strong/weak players together
    - Uses weighted average team skill calculation
 
-3. **Position Variety** (Weight: Minimal)
-   - Framework ready for position rotation
-   - Currently maintains consistent positions during subs
+4. **Position Variety** (Weight: Minimal)
+   - Positions inherited from departing players during substitutions
+   - Position score balancing naturally creates position variety over time
 
 ### Development Commands
 ```bash
@@ -116,8 +123,11 @@ open http://localhost:8001/index_new.html
 6. Use print function for coaching during games
 
 ### Recent Major Updates
+- ✅ Replaced halftime swap with position score balancing system (December 2025)
+- ✅ Implemented position score tracking: Forward +1, Midfield 0, Defender -1 per interval
+- ✅ Added position score column to Playing Time Distribution table
 - ✅ Fixed rotation algorithm for true equal playing time
-- ✅ Implemented 3×4 grid layout for field formations  
+- ✅ Implemented 3×4 grid layout for field formations
 - ✅ Added quarter-based timer display
 - ✅ Removed position codes from player names
 - ✅ Applied strict OKLCH color adherence

@@ -493,6 +493,41 @@ class RotationEngine {
             );
         }
 
+        // Recalculate position scores for all players after the swap
+        this.recalculatePositionScores();
+
         console.log('✅ Player swap complete for all subsequent moments');
+    }
+
+    // Recalculate all position scores based on current schedule
+    recalculatePositionScores() {
+        console.log('🔢 Recalculating position scores after swap...');
+
+        // Get all players (goalkeeper + outfield)
+        const allPlayers = this.playerManager.getAvailablePlayers();
+
+        // Reset all position scores to 0
+        allPlayers.forEach(player => {
+            player.positionScore = 0;
+        });
+
+        // Iterate through entire schedule and recalculate scores
+        for (let i = 0; i < this.schedule.length; i++) {
+            const moment = this.schedule[i];
+
+            // For each player in this moment's lineup
+            moment.lineup.forEach(lineupPlayer => {
+                const player = lineupPlayer.player;
+                const position = lineupPlayer.position;
+
+                // Add position score for this interval
+                const score = this.getPositionScore(position);
+                player.positionScore = (player.positionScore || 0) + score;
+            });
+        }
+
+        // Log updated scores
+        const outfieldPlayers = allPlayers.filter(p => !p.isGoalkeeper);
+        console.log('Updated position scores:', outfieldPlayers.map(p => `${p.name}: ${p.positionScore || 0}`).join(', '));
     }
 }

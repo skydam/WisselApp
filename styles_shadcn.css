@@ -1372,7 +1372,10 @@ input[type="checkbox"]:checked + .toggle-slider::before {
   .user-info,
   .header-top,
   .main-nav,
-  .legend {
+  .legend,
+  .playing-time-container,
+  .gantt-container,
+  .schedule-container {
     display: none !important;
   }
 
@@ -1445,16 +1448,20 @@ input[type="checkbox"]:checked + .toggle-slider::before {
   }
 
   .substitution-moments-grid {
-    grid-template-columns: repeat(4, 1fr);
-    gap: 0.5rem;
-    page-break-inside: avoid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
   }
 
   .formation-card {
-    padding: 0.5rem;
-    border: 1px solid #ccc;
-    border-radius: 4px;
+    padding: 0.75rem;
+    border: 2px solid #000;
+    border-radius: 6px;
     page-break-inside: avoid;
+    margin-bottom: 1rem;
+  }
+
+  .formation-card:nth-child(2n) {
+    page-break-after: always;
   }
 
   .formation-header {
@@ -1471,30 +1478,53 @@ input[type="checkbox"]:checked + .toggle-slider::before {
 
   .mini-field {
     min-height: auto;
-    padding: 0.5rem;
-    background: white;
-    border: 1px solid #999;
-    border-radius: 3px;
+    padding: 1rem 0.75rem;
+    background: #f9f9f9;
+    border: 2px solid #333;
+    border-radius: 6px;
     display: flex;
     flex-direction: column;
-    gap: 0.3rem;
+    gap: 0.5rem;
   }
 
   .field-layer {
     display: flex;
     justify-content: center;
-    gap: 0.25rem;
-    flex-wrap: wrap;
+    gap: 0.5rem;
+    flex-wrap: nowrap;
+  }
+
+  .field-layer.forwards {
+    order: 1;
+  }
+
+  .field-layer.midfield {
+    order: 2;
+  }
+
+  .field-layer.defenders {
+    order: 3;
+  }
+
+  .field-layer.sweeper {
+    order: 4;
+  }
+
+  .field-layer.goalkeeper {
+    order: 5;
+    padding-top: 0.25rem;
+    border-top: 1px dashed #999;
   }
 
   .player-namecard {
-    padding: 0.25rem 0.5rem;
-    font-size: 7.5pt;
-    border-radius: 2px;
+    padding: 0.4rem 0.6rem;
+    font-size: 9pt;
+    border-radius: 3px;
     text-align: center;
-    border: 1px solid #666;
+    border: 1.5px solid #666;
     background: white;
     display: inline-block;
+    min-width: 60px;
   }
 
   .player-namecard.player-out {
@@ -1514,26 +1544,31 @@ input[type="checkbox"]:checked + .toggle-slider::before {
   }
 
   .bench-area {
-    margin-top: 0.5rem;
+    margin-top: 0.75rem;
     padding-top: 0.5rem;
-    border-top: 1px dashed #ccc;
+    border-top: 1px solid #ccc;
   }
 
   .bench-label {
     font-size: 8pt;
     font-weight: 600;
     margin-bottom: 0.25rem;
+    color: #666;
   }
 
   .bench-players {
-    gap: 0.25rem;
+    display: flex;
+    gap: 0.35rem;
+    flex-wrap: wrap;
   }
 
   .bench-player {
-    padding: 0.15rem 0.3rem;
-    font-size: 7pt;
-    border: 1px solid #ddd;
+    padding: 0.2rem 0.4rem;
+    font-size: 8pt;
+    border: 1px solid #bbb;
     border-radius: 2px;
+    background: #fafafa;
+    color: #666;
   }
 
   /* Compact playing time table */

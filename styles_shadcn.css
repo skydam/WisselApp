@@ -1471,30 +1471,46 @@ input[type="checkbox"]:checked + .toggle-slider::before {
 
   .mini-field {
     min-height: auto;
-    padding: 0.5rem 0.25rem;
+    padding: 0.5rem;
     background: white;
     border: 1px solid #999;
     border-radius: 3px;
-  }
-
-  .mini-field-players {
-    gap: 0.2rem;
     display: flex;
     flex-direction: column;
+    gap: 0.3rem;
   }
 
-  .player-badge {
-    padding: 0.25rem 0.4rem;
+  .field-layer {
+    display: flex;
+    justify-content: center;
+    gap: 0.25rem;
+    flex-wrap: wrap;
+  }
+
+  .player-namecard {
+    padding: 0.25rem 0.5rem;
     font-size: 7.5pt;
     border-radius: 2px;
     text-align: center;
+    border: 1px solid #666;
+    background: white;
+    display: inline-block;
   }
 
-  /* Add position indicators for better visual clarity */
-  .player-badge::before {
-    content: "•";
-    margin-right: 0.2rem;
-    color: #666;
+  .player-namecard.player-out {
+    background: #f0f0f0 !important;
+    border-color: #999 !important;
+  }
+
+  .player-namecard.player-in {
+    border: 2px solid #000 !important;
+    background: white !important;
+    font-weight: 600 !important;
+  }
+
+  .player-namecard.goalkeeper {
+    border-color: #8b4513 !important;
+    font-weight: 600;
   }
 
   .bench-area {
@@ -1546,13 +1562,66 @@ input[type="checkbox"]:checked + .toggle-slider::before {
     font-size: 8pt;
   }
 
-  .gantt-row {
-    padding: 0.2rem 0;
+  .gantt-timeline {
+    display: block;
+    width: 100%;
   }
 
-  .gantt-cell {
-    width: 18px;
-    height: 18px;
+  .gantt-header {
+    display: flex;
+    border-bottom: 2px solid #000;
+    padding-bottom: 0.25rem;
+    margin-bottom: 0.25rem;
+    font-weight: 600;
+  }
+
+  .gantt-player-name {
+    width: 120px;
+    flex-shrink: 0;
+    font-size: 7.5pt;
+    padding: 0.15rem 0.25rem;
+  }
+
+  .gantt-intervals {
+    display: flex;
+    flex: 1;
+    gap: 2px;
+  }
+
+  .gantt-interval {
+    flex: 1;
+    text-align: center;
+    font-size: 6pt;
+    line-height: 1.2;
+  }
+
+  .gantt-row {
+    display: flex;
+    border-bottom: 1px solid #ddd;
+    padding: 0.15rem 0;
+  }
+
+  .gantt-bars {
+    display: flex;
+    flex: 1;
+    gap: 2px;
+  }
+
+  .gantt-bar {
+    flex: 1;
+    height: 20px;
+    border: 1px solid #ccc;
+    border-radius: 2px;
+  }
+
+  .gantt-bar.playing {
+    background: #4CAF50 !important;
+    border-color: #2E7D32 !important;
+  }
+
+  .gantt-bar.resting {
+    background: white !important;
+    border-color: #ccc !important;
   }
 
   /* Compact substitution schedule */
@@ -1600,23 +1669,6 @@ input[type="checkbox"]:checked + .toggle-slider::before {
   .card {
     box-shadow: none !important;
     border: 1px solid #ddd;
-  }
-
-  /* Ensure good contrast */
-  .player-normal {
-    border: 1px solid #999 !important;
-    background: white !important;
-  }
-
-  .player-out {
-    border: 1px solid #999 !important;
-    background: #f0f0f0 !important;
-  }
-
-  .player-in {
-    border: 1px solid #000 !important;
-    background: white !important;
-    font-weight: 600 !important;
   }
 }
 

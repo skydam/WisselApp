@@ -1354,25 +1354,269 @@ input[type="checkbox"]:checked + .toggle-slider::before {
 @media print {
   body {
     background: white;
+    font-size: 10pt;
+    line-height: 1.3;
   }
 
   .container {
     padding: 0;
+    max-width: 100%;
   }
 
+  /* Hide non-essential elements */
+  header,
   .nav-btn,
   .btn,
-  .game-controls {
-    display: none;
+  .game-controls,
+  .players-section,
+  .user-info,
+  .header-top,
+  .main-nav,
+  .legend {
+    display: none !important;
+  }
+
+  /* Show only game section */
+  #game-section {
+    display: block !important;
+  }
+
+  /* Add print header */
+  #game-section::before {
+    content: "GAME SCHEDULE";
+    display: block;
+    font-family: 'Playfair Display', serif;
+    font-size: 24pt;
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #000;
+  }
+
+  /* Game Summary */
+  .game-summary {
+    display: block !important;
+    margin-bottom: 2rem;
+    padding: 1rem;
+    border: 2px solid #000;
+    border-radius: 4px;
+    background: #f9f9f9;
+    page-break-after: avoid;
+  }
+
+  .summary-title {
+    font-size: 16pt;
+    font-weight: 700;
+    margin-bottom: 0.75rem;
+    text-align: center;
+  }
+
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+    font-size: 10pt;
+  }
+
+  .summary-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.25rem 0;
+  }
+
+  .summary-label {
+    font-weight: 600;
+  }
+
+  .summary-value {
+    color: #333;
+  }
+
+  /* Compact substitution moments */
+  .substitutions-container h2,
+  .playing-time-container h2,
+  .gantt-container h2,
+  .schedule-container h2 {
+    font-size: 14pt;
+    font-weight: 600;
+    margin: 1.5rem 0 0.75rem 0;
+    page-break-after: avoid;
   }
 
   .substitution-moments-grid {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 1rem;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.5rem;
+    page-break-inside: avoid;
+  }
+
+  .formation-card {
+    padding: 0.5rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    page-break-inside: avoid;
+  }
+
+  .formation-header {
+    font-size: 10pt;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+  }
+
+  .formation-time {
+    font-size: 8pt;
+    color: #666;
+    margin-bottom: 0.5rem;
   }
 
   .mini-field {
-    min-height: 180px;
+    min-height: auto;
+    padding: 0.5rem 0.25rem;
+    background: white;
+    border: 1px solid #999;
+    border-radius: 3px;
+  }
+
+  .mini-field-players {
+    gap: 0.2rem;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .player-badge {
+    padding: 0.25rem 0.4rem;
+    font-size: 7.5pt;
+    border-radius: 2px;
+    text-align: center;
+  }
+
+  /* Add position indicators for better visual clarity */
+  .player-badge::before {
+    content: "•";
+    margin-right: 0.2rem;
+    color: #666;
+  }
+
+  .bench-area {
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px dashed #ccc;
+  }
+
+  .bench-label {
+    font-size: 8pt;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+  }
+
+  .bench-players {
+    gap: 0.25rem;
+  }
+
+  .bench-player {
+    padding: 0.15rem 0.3rem;
+    font-size: 7pt;
+    border: 1px solid #ddd;
+    border-radius: 2px;
+  }
+
+  /* Compact playing time table */
+  .playing-time-table {
+    font-size: 8pt;
+  }
+
+  .playing-time-table table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .playing-time-table th,
+  .playing-time-table td {
+    padding: 0.25rem 0.5rem;
+    border: 1px solid #ddd;
+  }
+
+  .playing-time-table th {
+    background: #f5f5f5;
+    font-weight: 600;
+  }
+
+  /* Compact Gantt chart */
+  .gantt-chart {
+    font-size: 8pt;
+  }
+
+  .gantt-row {
+    padding: 0.2rem 0;
+  }
+
+  .gantt-cell {
+    width: 18px;
+    height: 18px;
+  }
+
+  /* Compact substitution schedule */
+  .schedule-timeline {
+    font-size: 9pt;
+  }
+
+  .schedule-moment {
+    margin-bottom: 0.75rem;
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    page-break-inside: avoid;
+  }
+
+  .moment-time {
+    font-size: 10pt;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+  }
+
+  .substitutions-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .sub-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 8pt;
+  }
+
+  /* Page breaks */
+  .substitutions-container {
+    page-break-after: always;
+  }
+
+  .playing-time-container {
+    page-break-after: always;
+  }
+
+  /* Remove shadows and fancy styling */
+  .card {
+    box-shadow: none !important;
+    border: 1px solid #ddd;
+  }
+
+  /* Ensure good contrast */
+  .player-normal {
+    border: 1px solid #999 !important;
+    background: white !important;
+  }
+
+  .player-out {
+    border: 1px solid #999 !important;
+    background: #f0f0f0 !important;
+  }
+
+  .player-in {
+    border: 1px solid #000 !important;
+    background: white !important;
+    font-weight: 600 !important;
   }
 }
 

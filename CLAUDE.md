@@ -10,8 +10,10 @@ A comprehensive hockey team management web application for coaches to manage pla
 - **Fonts**: Geist Sans & Geist Mono (Next.js standard fonts)
 - **Icons**: Lucide icons via CDN
 - **Styling**: Custom OKLCH color system, shadcn/ui inspired design
-- **Data Storage**: Enhanced localStorage with backup redundancy
-- **Server**: Python HTTP server for development
+- **Data Storage**: Supabase PostgreSQL (persistent cloud database)
+- **Backend**: Node.js + Express with custom authentication
+- **Local Development**: Python HTTP server for frontend-only testing
+- **Deployment**: Railway (auto-deploy from GitHub)
 
 ### Key Features Implemented
 
@@ -42,23 +44,33 @@ A comprehensive hockey team management web application for coaches to manage pla
 - ✅ Substitution schedule with player transitions
 
 #### 4. Data Persistence
-- ✅ Enhanced localStorage with backup redundancy
-- ✅ Auto-export functionality for external backups
-- ✅ Version tracking and timestamped saves
-- ✅ Multiple backup layers to prevent data loss
+- ✅ Supabase PostgreSQL backend (persistent cloud storage)
+- ✅ User-specific data isolation (each user sees only their data)
+- ✅ Data survives all Railway deployments
+- ✅ localStorage backup for offline capability
+- ✅ Auto-sync between backend and localStorage
 
 ### Current File Structure
 ```
 WisselApp/
-├── index_new.html           # Main HTML (current version)
-├── styles_shadcn.css        # OKLCH color system + shadcn/ui styling
-├── player-manager_new.js    # Player roster management
-├── rotation-engine_new.js   # Game rotation algorithm
-├── app_new.js              # Navigation & game UI controller
-├── database_new.js         # Enhanced localStorage system
-├── storage_new.js          # Data persistence interface
-├── test-data_new.js        # Sample player data
-└── CLAUDE.md              # This file
+├── index.html              # Main application page
+├── login.html              # Login/signup page
+├── admin.html              # Admin panel
+├── admin-reset.html        # Emergency password reset
+├── styles_shadcn.css       # OKLCH color system + shadcn/ui styling
+├── server.js               # Node.js backend (PostgreSQL + Express)
+├── package.json            # Node dependencies
+├── .env                    # Environment variables (DATABASE_URL)
+├── .env.example            # Environment variables template
+├── supabase-setup.sql      # Database schema for Supabase
+├── SUPABASE_SETUP.md       # Complete Supabase setup guide
+├── player-manager_new.js   # Player roster management
+├── rotation-engine_new.js  # Game rotation algorithm
+├── app_new.js             # Navigation & game UI controller
+├── database_new.js        # localStorage wrapper
+├── storage_new.js         # Data persistence interface (backend + localStorage)
+├── test-data_new.js       # Sample player data
+└── CLAUDE.md             # This file (development notes)
 ```
 
 ### Design System
@@ -567,3 +579,272 @@ checkAuth();  // Async function, doesn't wait
 ---
 **Last Updated**: November 19, 2025
 **Status**: ✅ Race condition fix deployed - awaiting production testing
+
+---
+
+## MAJOR MIGRATION: December 6-7, 2025 - Supabase PostgreSQL
+
+### The Problem: Ephemeral Storage on Railway
+
+**User Complaint**: "I hate the fact that every time i fix something in the app and the railway deployment i need to sign up again and i need to enter all the team players again."
+
+**Root Cause**: Railway containers have ephemeral filesystems
+- SQLite database (`wisselapp.db`) stored in container filesystem
+- Every deployment wipes the container and creates a fresh one
+- All user accounts and team data lost on each deployment
+
+### The Solution: Cloud PostgreSQL Database
+
+**Migrated from SQLite to Supabase PostgreSQL** (December 6-7, 2025)
+- **Database**: Supabase PostgreSQL (free tier: 500MB storage)
+- **Persistence**: Data survives all Railway deployments indefinitely
+- **Connection**: Session Mode pooler (IPv4-compatible for Railway)
+- **Cost**: $0 (both Supabase and Railway free tiers)
+
+### Migration Work Completed
+
+#### 1. New Files Created
+- **`supabase-setup.sql`**: Database schema (users, team_data tables)
+- **`SUPABASE_SETUP.md`**: Complete setup guide with troubleshooting
+- **`.env.example`**: Updated with DATABASE_URL template
+
+#### 2. Backend Migration (`server.js`)
+**Replaced better-sqlite3 with pg (PostgreSQL client)**:
+```javascript
+// Added dotenv for environment variables
+require('dotenv').config();
+const { Pool } = require('pg');
+
+// PostgreSQL connection pool
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
+  connectionTimeoutMillis: 10000
+});
+```
+
+**Updated all queries from SQLite to PostgreSQL syntax**:
+- `?` placeholders → `$1, $2, $3` placeholders
+- `.run()` → `pool.query()`
+- `result.lastInsertRowid` → `result.rows[0].id`
+- `result.changes` → `result.rowCount`
+- Error code `SQLITE_CONSTRAINT` → `'23505'` (PostgreSQL unique violation)
+
+**Example query migration**:
+```javascript
+// OLD (SQLite):
+const result = db.prepare('INSERT INTO users (email, password) VALUES (?, ?)').run(email, hashedPassword);
+req.session.userId = result.lastInsertRowid;
+
+// NEW (PostgreSQL):
+const result = await pool.query(
+  'INSERT INTO users (email, password) VALUES ($1, $2) RETURNING id',
+  [email, hashedPassword]
+);
+req.session.userId = result.rows[0].id;
+```
+
+#### 3. Script Loading Fix (`index.html`)
+**Changed from parallel to sequential script loading** to prevent race conditions:
+```javascript
+async function loadAppScripts() {
+    const scripts = [
+        'database_new.js',
+        'storage_new.js',        // Must load BEFORE player-manager
+        'player-manager_new.js',  // Depends on storage
+        'rotation-engine_new.js',
+        'app_new.js',
+        'test-data_new.js'
+    ];
+
+    // Load one at a time (sequential)
+    for (const src of scripts) {
+        await new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = src;
+            script.onload = () => {
+                console.log(`✅ Loaded: ${src}`);
+                resolve();
+            };
+            script.onerror = () => reject(new Error(`Failed to load ${src}`));
+            document.body.appendChild(script);
+        });
+    }
+}
+```
+
+#### 4. Dependencies Updated (`package.json`)
+```json
+{
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "body-parser": "^1.20.2",
+    "dotenv": "^17.2.3",      // NEW: Load environment variables
+    "express": "^4.18.2",
+    "express-session": "^1.17.3",
+    "pg": "^8.16.3"            // NEW: PostgreSQL client (replaced better-sqlite3)
+  }
+}
+```
+
+### Issues Encountered & Resolved
+
+#### Issue 1: Add Player Button Not Working
+**Problem**: Dynamic script loading broke DOMContentLoaded listeners
+**Fix**: Removed DOMContentLoaded listeners, scripts now initialize immediately
+**Files**: `player-manager_new.js`, `app_new.js`
+**Commit**: 46431a0
+
+#### Issue 2: IPv6 Connection Failure
+**Problem**: Railway only supports IPv4, Supabase direct connection uses IPv6
+**Error**: `ENETUNREACH` trying to connect to `db.xhomocydqgbrwkybtgjf.supabase.co`
+**Solution**: Switched to Supabase Session Mode pooler (IPv4-compatible)
+**Connection String**:
+```
+postgresql://postgres.xhomocydqgbrwkybtgjf:[PASSWORD]@aws-1-eu-west-1.pooler.supabase.com:5432/postgres
+```
+
+#### Issue 3: Script Loading Race Condition
+**Problem**: `player-manager_new.js` executed before `storage_new.js` loaded
+**Error**: `ReferenceError: Can't find variable: storage`
+**Symptom**: Players saved successfully but not loaded after redeployment
+**Fix**: Sequential script loading with async/await (see code above)
+**Commit**: 2c02221
+
+### Supabase Setup Instructions
+
+#### 1. Create Supabase Account
+- Go to https://supabase.com
+- Sign up for free account
+- Create new project (choose region: EU West)
+
+#### 2. Create Database Tables
+- Go to **SQL Editor** in Supabase dashboard
+- Run `supabase-setup.sql` script
+- Verify tables created: `users`, `team_data`
+
+#### 3. Get Connection String
+- Go to **Project Settings** → **Database** → **Connection String**
+- Select **Session pooler** mode (not Direct connection)
+- Copy connection string (URI format)
+- Replace `[YOUR-PASSWORD]` with your actual database password
+
+#### 4. Configure Railway
+- Go to Railway dashboard → Your project
+- **Variables** tab
+- Add `DATABASE_URL` with Supabase connection string
+- Railway auto-redeploys with new environment variable
+
+### Current Environment Variables (Railway)
+
+```bash
+DATABASE_URL=postgresql://postgres.xhomocydqgbrwkybtgjf:aafjes24@aws-1-eu-west-1.pooler.supabase.com:5432/postgres
+SESSION_SECRET=hockey-team-secret-key-change-in-production
+ADMIN_PASSWORD=admin123
+ADMIN_SECRET=reset-my-password-please
+NODE_ENV=production
+PORT=3000  # Set automatically by Railway
+```
+
+### Testing Results
+
+✅ **All tests passed**:
+1. User signup works and persists across deployments
+2. User login works with correct credentials
+3. Players added by one user are NOT visible to other users
+4. Player data persists after Railway redeployments
+5. Password reset via `admin-reset.html` works
+6. All game features work (schedule generation, formations, etc.)
+
+**User Feedback**: "Yes! it works now. Perfect!"
+
+### Database Schema (PostgreSQL)
+
+```sql
+-- Users table
+CREATE TABLE users (
+  id SERIAL PRIMARY KEY,
+  email VARCHAR(255) UNIQUE NOT NULL,
+  password VARCHAR(255) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Team data table (one row per user)
+CREATE TABLE team_data (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+  data JSONB NOT NULL,  -- Stores players array and game settings
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Indexes for performance
+CREATE INDEX idx_team_data_user_id ON team_data(user_id);
+CREATE INDEX idx_users_email ON users(email);
+```
+
+### Updated Technology Stack
+
+#### Current Architecture (December 2025)
+- **Frontend**: HTML5, CSS3, JavaScript (ES6+)
+- **Styling**: Custom OKLCH color system, shadcn/ui inspired design
+- **Fonts**: Geist Sans & Geist Mono (via CDN)
+- **Icons**: Lucide icons (via CDN)
+- **Backend**: Node.js + Express
+- **Authentication**: Custom email/password with bcrypt
+- **Database**: Supabase PostgreSQL (cloud-hosted, persistent)
+- **Deployment**: Railway (auto-deploy from GitHub)
+- **Local Development**: Python HTTP server for frontend testing
+
+#### Data Flow
+1. User signs up/logs in → Express session created
+2. User adds/edits players → Saved to PostgreSQL via `/api/team/save`
+3. User loads app → Data fetched from PostgreSQL via `/api/team/load`
+4. User logs out → Session destroyed
+5. User logs back in → Same data loaded from PostgreSQL ✅
+
+### Migration Timeline
+
+- **December 6, 2025 21:00**: User reported data loss problem
+- **December 6, 2025 21:30**: Researched alternatives (Supabase, Turso, Neon)
+- **December 6, 2025 22:00**: Chose Supabase PostgreSQL
+- **December 6, 2025 22:30**: Created database schema and setup guide
+- **December 6, 2025 23:00**: Migrated all server.js queries
+- **December 7, 2025 00:00**: Fixed IPv6 connection issue
+- **December 7, 2025 01:00**: Fixed script loading race condition
+- **December 7, 2025 01:30**: Testing complete, migration successful
+
+### Files Modified in Migration
+
+| File | Changes |
+|------|---------|
+| `server.js` | Complete PostgreSQL migration, dotenv setup |
+| `package.json` | Added `pg` and `dotenv` dependencies |
+| `index.html` | Sequential script loading |
+| `player-manager_new.js` | Removed DOMContentLoaded listener |
+| `app_new.js` | Removed DOMContentLoaded listener |
+| `admin.html` | Fixed duplicate endpoint name |
+| `.env.example` | Added DATABASE_URL |
+| `supabase-setup.sql` | NEW - Database schema |
+| `SUPABASE_SETUP.md` | NEW - Complete setup guide |
+| `CLAUDE.md` | This documentation update |
+
+### Key Commits
+
+- **7c56252**: Initial PostgreSQL migration
+- **46431a0**: Fix Add Player button (remove DOMContentLoaded)
+- **2c02221**: Sequential script loading to prevent race conditions
+- **[current]**: Documentation update
+
+### Deployment Status
+
+- ✅ Code pushed to GitHub: `https://github.com/skydam/WisselApp.git`
+- ✅ Railway auto-deployed with PostgreSQL
+- ✅ Supabase database configured and running
+- ✅ All functionality tested and working
+- ✅ Data persists across deployments
+
+**Production URL**: https://wisselapp-production-cac6.up.railway.app/
+
+---
+**Last Updated**: December 7, 2025
+**Status**: ✅ Supabase PostgreSQL migration complete and deployed

@@ -187,8 +187,9 @@ class App {
             // Generate schedule
             console.log(`Generating schedule with ${substitutionsPerQuarter} substitutions per quarter...`);
             const schedule = this.rotationEngine.generateSchedule(considerStrength, considerFatigue);
-            
+
             // Update UI
+            this.populateGameSummary();
             this.populateSubstitutionMoments(schedule);
             this.populatePlayingTimeDistribution();
             this.populateGanttChart();
@@ -207,6 +208,56 @@ class App {
             console.error('Error generating schedule:', error);
             alert('Error generating schedule: ' + error.message);
         }
+    }
+
+    populateGameSummary() {
+        const container = document.getElementById('game-summary');
+        if (!container || !playerManager) return;
+
+        const allPlayers = playerManager.getAllPlayers();
+        const availablePlayers = allPlayers.filter(p => p.isAvailable);
+        const goalkeeper = allPlayers.find(p => p.isGoalkeeper);
+        const totalPlayers = allPlayers.length;
+        const playingPlayers = availablePlayers.length;
+
+        const currentDate = new Date().toLocaleDateString('en-US', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+
+        const html = `
+            <div class="summary-title">Team Overview</div>
+            <div class="summary-grid">
+                <div class="summary-item">
+                    <span class="summary-label">Date:</span>
+                    <span class="summary-value">${currentDate}</span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">Total Roster:</span>
+                    <span class="summary-value">${totalPlayers} players</span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">Available:</span>
+                    <span class="summary-value">${playingPlayers} players</span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">Goalkeeper:</span>
+                    <span class="summary-value">${goalkeeper ? goalkeeper.name : 'None'}</span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">Game Duration:</span>
+                    <span class="summary-value">70 minutes</span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">Quarters:</span>
+                    <span class="summary-value">4 (17.5 min each)</span>
+                </div>
+            </div>
+        `;
+
+        container.innerHTML = html;
     }
 
     handlePlayerCardClick(nameCard) {
@@ -525,9 +576,9 @@ class App {
                     
                     html += `
                         <div class="substitution-pair">
-                            <span class="player-out">OUT: ${outPlayer.player.name} (${outPlayer.position})</span>
+                            <span class="player-out">OUT: ${outPlayer.player.name}</span>
                             <span class="substitution-arrow">→</span>
-                            <span class="player-in">IN: ${inPlayer.player.name} (${inPlayer.position})</span>
+                            <span class="player-in">IN: ${inPlayer.player.name}</span>
                         </div>
                     `;
                 }
